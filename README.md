@@ -3,7 +3,7 @@ HelloID Provisioning Target Connector for Google GSuite
 
 In this example we are going to connect to the Google API using OAuth2.0 and the Powershell Invoke-RestMethod cmdlet. Before we can start scripting in Powershell using the example script below, we first need to get a ClientId, ClientSecret, AuthCode and finally the Access and Refresh tokens.
 
-Getting the Google API access
+##Getting the Google API access
 Go to Google Developers Console and create a new project by clicking on the top bar and choose new project.
 Give your project a name and click create.
 When you are done, click the top bar again and select your newly created project.
@@ -18,7 +18,7 @@ Click create the OAuth 2.0 consent screen and we will get the credentials from t
 The Client ID and Client secret of the new OAuth client we use in the example scripts below.
 
 
-Getting the authorization code
+##Getting the authorization code
 With the authorization code, we can get the refresh token. We only need the refresh token, so the easiest way to get this one is to opening the endpoint in the browser, authenticate and grab the code from the address bar.
 
 To get the authorization code please use the URL below and replace the <replaceclientid> and <replaceredirecturi> with the values from the OAuth client we created before.
@@ -28,7 +28,7 @@ https://accounts.google.com/o/oauth2/auth?client_id=<replaceclientid>&scope=http
 
 After you have been authenticated, the tequest will be redirected to http://localhost/oauth2callback?code=4/QhUXhB********************z9jGKkhvac2&. Copy the code without the & at the end and store it somewhere, we will need this one later.
 
-Getting the refreshtoken
+##Getting the refreshtoken
 To exchange the Authorization code for the refresh token, we will use Powershell to make a call to https://www.googleapis.com/oauth2/v4/token. 
 Fill in Authorization code, ClienId, Client Secret and redirect Uri from the Google Developer Console and run the PowerShell script below. It will store the refresh token in a text file so you can use it later on.
 
