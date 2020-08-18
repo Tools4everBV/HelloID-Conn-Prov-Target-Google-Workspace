@@ -33,3 +33,5 @@ To exchange the Authorization code for the refresh token, we will use Powershell
 Fill in Authorization code, ClienId, Client Secret and redirect Uri from the Google Developer Console and run the PowerShell script below. It will store the refresh token in a text file so you can use it later on.
 
 The claimed authorization code can be exchanged for a refreshtoken only once, otherwise you have to request a new athorization code as described above.
+
+See refreshtoken.ps1
