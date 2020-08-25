@@ -10,11 +10,37 @@ $auditMessage = "Account for person " + $p.DisplayName + " not created successfu
  
 $defaultPassword = "Welkom01!";
 $defaultDomain = "yourdomain.com";
- 
+
+#Primary Email Generation
+function get_username {
+[cmdletbinding()]
+Param (
+[string]$firstName,
+[string]$lastName,
+[string]$domain,
+[int]$Iteration
+   ) 
+    Process 
+    {
+        $suffix = "";
+        if($Iteration -gt 0) { $suffix = ("00$($Iteration+1)").substring(1,2); };
+        
+        $temp_fn = $firstName;
+        $temp_ln = $lastName;
+        $temp_username = $temp_fn + "." + $temp_ln;
+        
+        $result = $temp_username + $suffix + $domain;
+        $result = $result.toLower();
+        @($result);
+    }
+}
+
+$username = get_username -firstName $p.Name.NickName -lastName $p.Name.FamilyName -domain $defaultDomain -Iteration 0;
+
 #Change mapping here
 #For all of the supported attributes please check https://developers.google.com/admin-sdk/directory/v1/guides/manage-users
 $account = [PSCustomObject]@{
-    primaryEmail = $p.Contact.Business.Email.split("@")[0] + "@" + $defaultDomain
+    primaryEmail = $username
     name = @{
                 givenName = $p.Name.NickName
                 familyName = $p.Name.FamilyName
@@ -29,30 +55,51 @@ $account = [PSCustomObject]@{
     suspended = $True
 }
  
-try{
-    if(-Not($dryRun -eq $True)){
-        ### exchange the refresh token for an access token
-        $requestUri = "https://www.googleapis.com/oauth2/v4/token"
-         
-        $refreshTokenParams = @{
-             client_id=$clientId;
-             client_secret=$clientSecret;
-             redirect_uri=$redirectUri;
-             refresh_token=$refreshToken;
-             grant_type="refresh_token"; # Fixed value
-        };
-        $response = Invoke-RestMethod -Method Post -Uri $requestUri -Body $refreshTokenParams -Verbose:$false
-        $accessToken = $response.access_token
-                
-        #Add the authorization header to the request
-        $authorization = @{
-            Authorization = "Bearer $accesstoken";
-            'Content-Type' = "application/json";
-            Accept = "application/json";
-        }
+#Check if account exists (externalId), else create
+    $correlationResponse = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users?customer=my_customer&query=externalId=$($p.ExternalId)&projection=FULL" -Method GET -Headers $authorization -Verbose:$false;
+    
+    if($correlationResponse.users.count -gt 0)
+    {
+        Write-Verbose -Message "Existing Account found" -Verbose
+        $account.suspended = $False;
+        
+        $aRef = $correlationResponse.users[0].id;
         $body = $account | ConvertTo-Json -Depth 10
-        $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$aRef" -Method POST -Headers $authorization -Body $body -Verbose:$false
-        $aRef = $response.id
+        Write-Verbose -Verbose ( $account | ConvertTo-Json -Depth 10);
+        if(-Not($dryRun -eq $True)){
+           $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$aRef" -Method PUT -Headers $authorization -Body $body -Verbose:$false
+        }
+    }
+    else
+    {
+        $Iterator = 0;
+        while($true)
+        {
+            #Check if username taken
+            $usernameResponse = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users?customer=my_customer&query=Email=$($account.primaryEmail)&projection=FULL" -Method GET -Headers $authorization -Verbose:$false
+
+            if($usernameResponse.users.count -gt 0)
+            {
+                #Iterate
+                Write-Verbose -Verbose "$($account.primaryEmail) already in use, iterating)"
+                $Iterator++;
+                $account.primaryEmail = get_username -firstName $p.Name.NickName -lastName $p.Name.FamilyName -domain $defaultDomain -Iteration $Iterator;
+            }
+            else
+            {
+                #Username available
+                break;
+            }
+        }
+        
+        #Safe measure, set password on create only
+        $account.password = $password;
+        
+        if(-Not($dryRun -eq $True)){
+           $body = $account | ConvertTo-Json -Depth 10
+           $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$aRef" -Method POST -Headers $authorization -Body $body -Verbose:$false
+           $aRef = $response.id
+        }
     }
     $success = $True;
     $auditMessage = " successfully"; 
@@ -65,7 +112,7 @@ try{
         $errResponse = $reader.ReadToEnd();
         $auditMessage = " : ${errResponse}";
     }else {
-        $auditMessage = " : General error";
+        $auditMessage = " $($_) : General error";
     } 
 }
  
