@@ -27,19 +27,24 @@ while($true)
 {
     if($nextPageToken -eq 'first')
     {
-        $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/groups?customer=my_customer" -Method GET -Headers $authorization
-         
+        $parameters = @{
+            customer = "my_customer";
+        }
+        $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/groups" -Body $parameters -Method GET -Headers $authorization
         $nextPageToken = $response.nextPageToken;
     }
     else
     {
-        $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/groups?customer=my_customer&amp;pageToken=$($nextPageToken)" -Method GET -Headers $authorization;
+        $parameters = @{
+            customer = "my_customer";
+            pageToken = "$($nextPageToken)"
+        }
+        $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/groups" -Body $parameters -Method GET -Headers $authorization;
         $nextPageToken = $response.nextPageToken;
     }
  
     [void]$gsuiteGroups.AddRange($response.groups);
     if($nextPageToken -eq $null) { break; }
-     
 }
  
 foreach($group in $gsuiteGroups)
