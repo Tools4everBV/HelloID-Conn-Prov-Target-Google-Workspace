@@ -55,7 +55,6 @@ $account = [PSCustomObject]@{
                         #department = ($p.primaryContract.custom.TeamDesc)
                         #costCenter = ($p.primaryContract.costCenter.ExternalID)
                     })
-    password = $defaultPassword
     suspended = $True
 }
  
@@ -97,7 +96,7 @@ $account = [PSCustomObject]@{
         }
         
         #Safe measure, set password on create only
-        $account.password = $password;
+        $account.password = $defaultPassword;
         
         if(-Not($dryRun -eq $True)){
            $body = $account | ConvertTo-Json -Depth 10
