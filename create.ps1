@@ -8,7 +8,7 @@ $success = $False;
 $p = $person | ConvertFrom-Json
 $auditMessage = "Account for person " + $p.DisplayName + " not created successfully";
  
-$defaultPassword = "Welkom01!";
+$defaultPassword = [System.Web.Security.Membership]::GeneratePassword(10, 0);
 $defaultDomain = "yourdomain.com";
 
 #Primary Email Generation
@@ -46,11 +46,15 @@ $account = [PSCustomObject]@{
                 familyName = $p.Name.FamilyName
                 fullName = ($p.Name.NickName + " " + $p.Name.FamilyName)
             }
-    externalIds = @{
-                value = $p.ExternalId
-                type = "custom"
-                customType = "employee"
-            }
+    externalIds =  @(@{
+                        value = $p.ExternalId
+                        type = "organization";
+                    })
+    organizations = @(@{
+                        title = ($p.primaryContract.Title.name)
+                        #department = ($p.primaryContract.custom.TeamDesc)
+                        #costCenter = ($p.primaryContract.costCenter.ExternalID)
+                    })
     password = $defaultPassword
     suspended = $True
 }
