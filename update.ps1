@@ -20,11 +20,15 @@ $account = [PSCustomObject]@{
                 familyName = $p.Name.FamilyName
                 fullName = ($p.Name.NickName + " " + $p.Name.FamilyName)
             }
-    externalIds = @{
-                value = $p.ExternalId
-                type = "custom"
-                customType = "employee"
-            }
+    externalIds =  @(@{
+                        value = $p.ExternalId
+                        type = "organization";
+                    })
+    organizations = @(@{
+                        title = ($p.primaryContract.Title.name)
+                        #department = ($p.primaryContract.custom.TeamDesc)
+                        #costCenter = ($p.primaryContract.costCenter.ExternalID)
+                    })
 }
  
 try{
