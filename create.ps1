@@ -8,9 +8,8 @@ $success = $False;
 $p = $person | ConvertFrom-Json
 $auditMessage = "Account for person " + $p.DisplayName + " not created successfully";
  
- 
 #Defaults, create only
-$defaultPassword = [System.Web.Security.Membership]::GeneratePassword(10, 0);
+$defaultPassword = [System.Web.Security.Membership]::GeneratePassword(10, 0); ##Method doesn't work with cloud agent.
 $defaultDomain = "yourdomain.com";
 $defaultOrgUnitPath = "/Disabled";
 $defaultSuspended = $true;
