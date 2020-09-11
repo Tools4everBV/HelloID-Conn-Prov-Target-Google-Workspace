@@ -8,10 +8,16 @@ $success = $False;
 $p = $person | ConvertFrom-Json
 $auditMessage = "Account for person " + $p.DisplayName + " not created successfully";
  
+ 
+#Defaults, create only
 $defaultPassword = [System.Web.Security.Membership]::GeneratePassword(10, 0);
 $defaultDomain = "yourdomain.com";
+$defaultOrgUnitPath = "/Disabled";
+$defaultSuspended = $true;
 
 #Primary Email Generation
+# 1. <First Name>.<Last Name>@<Domain> (e.g john.williams@yourdomain.com)
+# 2. <First Name>.<Last Name><Iterator>@<Domain> (e.g john.williams01@yourdomain.com)
 function get_username {
 [cmdletbinding()]
 Param (
@@ -39,23 +45,22 @@ $username = get_username -firstName $p.Name.NickName -lastName $p.Name.FamilyNam
 
 #Change mapping here
 #For all of the supported attributes please check https://developers.google.com/admin-sdk/directory/v1/guides/manage-users
-$account = [PSCustomObject]@{
+$account = @{
     primaryEmail = $username
     name = @{
-                givenName = $p.Name.NickName
-                familyName = $p.Name.FamilyName
-                fullName = ($p.Name.NickName + " " + $p.Name.FamilyName)
+                givenName = "$($p.Name.NickName)"
+                familyName = "$($p.Name.FamilyName)"
+                fullName = "$($p.Name.NickName) $($p.Name.FamilyName)"
             }
     externalIds =  @(@{
-                        value = $p.ExternalId
+                        value = "$($p.ExternalId)"
                         type = "organization";
                     })
     organizations = @(@{
-                        title = ($p.primaryContract.Title.name)
-                        #department = ($p.primaryContract.custom.TeamDesc)
-                        #costCenter = ($p.primaryContract.costCenter.ExternalID)
+                        title = "$($p.primaryContract.Title.name)"
+                        #department = "$($p.primaryContract.custom.TeamDesc)"
+                        #costCenter = "$($p.primaryContract.costCenter.ExternalID)"
                     })
-    suspended = $True
 }
 
 # exchange the refresh token for an access token
@@ -78,19 +83,26 @@ $account = [PSCustomObject]@{
         Accept = "application/json";
     }
 
-#Check if account exists (externalId), else create
-    $correlationResponse = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users?customer=my_customer&query=externalId=$($p.ExternalId)&projection=FULL" -Method GET -Headers $authorization -Verbose:$false;
+    #Check if account exists (externalId), else create
+    $parameters = @{
+        customer = "my_customer";
+        query = "externalId=$($p.ExternalId)";
+        projection="FULL";
+    }
+    $correlationResponse = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users" -Method GET -Body $parameters -Headers $authorization -Verbose:$false;
     
     if($correlationResponse.users.count -gt 0)
     {
         Write-Verbose -Message "Existing Account found" -Verbose
-        $account.suspended = $False;
         
         $aRef = $correlationResponse.users[0].id;
+        
+        #Use existing primaryEmail
+        $account.primaryEmail = $correlationResponse.users[0].primaryEmail;
         $body = $account | ConvertTo-Json -Depth 10
-        Write-Verbose -Verbose ( $account | ConvertTo-Json -Depth 10);
+        
         if(-Not($dryRun -eq $True)){
-           $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$aRef" -Method PUT -Headers $authorization -Body $body -Verbose:$false
+           $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" -Method PUT -Headers $authorization -Body $body -Verbose:$false
         }
     }
     else
@@ -99,7 +111,12 @@ $account = [PSCustomObject]@{
         while($true)
         {
             #Check if username taken
-            $usernameResponse = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users?customer=my_customer&query=Email=$($account.primaryEmail)&projection=FULL" -Method GET -Headers $authorization -Verbose:$false
+            $parameters = @{
+               customer = "my_customer";
+               query = "Email=$($account.primaryEmail)";
+               projection="FULL";
+           }
+            $usernameResponse = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users" -Method GET -Body $parameters -Headers $authorization -Verbose:$false
 
             if($usernameResponse.users.count -gt 0)
             {
@@ -115,12 +132,14 @@ $account = [PSCustomObject]@{
             }
         }
         
-        #Safe measure, set password on create only
+        #Safe measure, set defaults 
         $account.password = $defaultPassword;
+        $account.orgUnitPath = $defaultOrgUnitPath;
+        $account.suspended = $defaultSuspended;
         
         if(-Not($dryRun -eq $True)){
            $body = $account | ConvertTo-Json -Depth 10
-           $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$aRef" -Method POST -Headers $authorization -Body $body -Verbose:$false
+           $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" -Method POST -Headers $authorization -Body $body -Verbose:$false
            $aRef = $response.id
         }
     }
