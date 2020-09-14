@@ -42,24 +42,7 @@ if(-Not($dryRun -eq $True)) {
         $auditMessage = " successfully";
     }catch
     {
-            if($_.Exception.Response.StatusCode.value__ -eq 404)
-            {
-                $success = $True;
-                $auditMessage = " successfully (already removed)";
-            }
-            else
-            {
-                if(-Not($_.Exception.Response -eq $null)){
-                    $result = $_.Exception.Response.GetResponseStream()
-                    $reader = New-Object System.IO.StreamReader($result)
-                    $reader.BaseStream.Position = 0
-                    $reader.DiscardBufferedData()
-                    $errResponse = $reader.ReadToEnd();
-                    $auditMessage = " : ${errResponse}";
-                } else {
-                    $auditMessage = " : General error";
-                }
-            }
+            Write-Error -Verbose $_; 
     }
 }
  
