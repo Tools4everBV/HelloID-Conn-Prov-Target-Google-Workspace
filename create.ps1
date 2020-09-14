@@ -145,16 +145,7 @@ $account = @{
     $success = $True;
     $auditMessage = " successfully"; 
 }catch{
-    if(-Not($_.Exception.Response -eq $null)){
-        $result = $_.Exception.Response.GetResponseStream()
-        $reader = New-Object System.IO.StreamReader($result)
-        $reader.BaseStream.Position = 0
-        $reader.DiscardBufferedData()
-        $errResponse = $reader.ReadToEnd();
-        $auditMessage = " : ${errResponse}";
-    }else {
-        $auditMessage = " $($_) : General error";
-    } 
+    Write-Error -Verbose $_; 
 }
  
 #build up result
