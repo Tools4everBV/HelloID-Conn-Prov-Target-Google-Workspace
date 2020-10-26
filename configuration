@@ -1,0 +1,40 @@
+[
+  {
+    "key": "clientId",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "Client ID",
+      "required": true
+    }
+  },
+  {
+    "key": "clientSecret",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "Client Secret",
+      "type": "password",
+      "required": true
+    }
+  },
+  {
+    "key": "redirectUri",
+    "type": "input",
+    "defaultValue": "http://localhost/oauth2callback",
+    "templateOptions": {
+      "label": "Redirect URI",
+      "required": true
+    }
+  },
+  {
+    "key": "refreshToken",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "Refresh Token",
+      "type": "password",
+      "required": true
+    }
+  }
+]
