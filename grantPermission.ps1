@@ -1,7 +1,5 @@
-$clientId = "CLIENTID"
-$clientSecret = "CLIENT SECRET"
-$redirectUri = "http://localhost/oauth2callback"
-$refreshToken = "REFRESHTOKEN"
+#2020-10-26
+$config = ConvertFrom-Json $configuration;
  
 #Initialize default properties
 $success = $False;
@@ -19,10 +17,10 @@ if(-Not($dryRun -eq $True)) {
         $requestUri = "https://www.googleapis.com/oauth2/v4/token";
          
         $refreshTokenParams = @{
-                client_id=$clientId;
-                client_secret=$clientSecret;
-                redirect_uri=$redirectUri;
-                refresh_token=$refreshToken;
+                client_id=$config.clientId;
+                client_secret=$config.clientSecret;
+                redirect_uri=$config.redirectUri;
+                refresh_token=$config.refreshToken;
                 grant_type="refresh_token"; # Fixed value
         };
         $response = Invoke-RestMethod -Method Post -Uri $requestUri -Body $refreshTokenParams -Verbose:$false
