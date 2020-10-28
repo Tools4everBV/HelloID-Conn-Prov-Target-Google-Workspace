@@ -21,10 +21,10 @@ The Client ID and Client secret of the new OAuth client we use in the example sc
 ## Getting the authorization code
 With the authorization code, we can get the refresh token. We only need the refresh token, so the easiest way to get this one is to opening the endpoint in the browser, authenticate and grab the code from the address bar.
 
-To get the authorization code please use the URL below and replace the <replaceclientid> and <replaceredirecturi> with the values from the OAuth client we created before.
+To get the authorization code please use the URL below and replace the {replaceclientid} with the values from the OAuth client we created before.
 
 
-https://accounts.google.com/o/oauth2/auth?client_id=<replaceclientid>&scope=https://www.googleapis.com/auth/admin.directory.user https://www.googleapis.com/auth/admin.directory.group&response_type=code&redirect_uri=<replaceredirecturi>&access_type=offline&approval_prompt=force
+https://accounts.google.com/o/oauth2/auth?client_id={replaceclientid}&scope=https://www.googleapis.com/auth/admin.directory.user https://www.googleapis.com/auth/admin.directory.group&response_type=code&redirect_uri=http://localhost/oauth2callback&access_type=offline&approval_prompt=force
 
 After you have been authenticated, the tequest will be redirected to http://localhost/oauth2callback?code=4/QhUXhB********************z9jGKkhvac2&. Copy the code without the & at the end and store it somewhere, we will need this one later.
 
