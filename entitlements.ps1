@@ -1,6 +1,5 @@
-#2020-10-26
+#2020-10-28
 $config = ConvertFrom-Json $configuration;
- 
 $requestUri = "https://www.googleapis.com/oauth2/v4/token"
          
 $refreshTokenParams = @{
@@ -20,31 +19,22 @@ $authorization = @{
         Accept = "application/json";
     }
 $gsuiteGroups = [System.Collections.ArrayList]@();
-$nextPageToken = 'first';
+
+$parameters = @{
+            customer = "my_customer";
+        }
+        
 while($true)
-{
-    if($nextPageToken -eq 'first')
-    {
-        $parameters = @{
-            customer = "my_customer";
-        }
-        $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/groups" -Body $parameters -Method GET -Headers $authorization
-        $nextPageToken = $response.nextPageToken;
-    }
-    else
-    {
-        $parameters = @{
-            customer = "my_customer";
-            pageToken = "$($nextPageToken)"
-        }
-        $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/groups" -Body $parameters -Method GET -Headers $authorization;
-        $nextPageToken = $response.nextPageToken;
-    }
- 
+{ 
+    $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/groups" -Body $parameters -Method GET -Headers $authorization
+    $parameters['pageToken'] = $response.nextPageToken;
+    
     [void]$gsuiteGroups.AddRange($response.groups);
-    if($nextPageToken -eq $null) { break; }
+    if($parameters['pageToken'] -eq $null) { break; }
 }
- 
+
+Write-Verbose -Verbose "Total Groups $($gsuiteGroups.count)";
+
 foreach($group in $gsuiteGroups)
 {
     $row = @{
