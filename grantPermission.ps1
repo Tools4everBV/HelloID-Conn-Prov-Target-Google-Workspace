@@ -1,9 +1,9 @@
-#2020-10-26
+#2020-10-28
 $config = ConvertFrom-Json $configuration;
  
 #Initialize default properties
 $success = $False;
-$auditMessage = "Membership for person " + $p.DisplayName + " not added successfully";
+$auditMessage = "Membership for person $($p.DisplayName) not added successfully";
  
 $p = $person | ConvertFrom-Json;
 $m = $manager | ConvertFrom-Json;
@@ -56,6 +56,7 @@ if(-Not($dryRun -eq $True)) {
             }
             else
             {
+                $auditMessage = " : General error $($_)";
                 Write-Error -Verbose $_; 
            }
     }
