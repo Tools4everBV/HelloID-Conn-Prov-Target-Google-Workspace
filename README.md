@@ -6,10 +6,10 @@ In this example we are going to connect to the Google Directory API (https://dev
  2. You will see the empty dashboard where we need to select which API we want to interact with, In this example we are managing user accounts so we selected the Admin SDK. Click Enable after which you will be redirected back to the dashboard.
  3. As stated on the dashboard, go to the credentials menu item and click on + Create Credentials and choose OAuth client ID.
  4. Application type choose Web application.
-    Fill in a name you like for the OAuth 2.0 client ID.
-    For Authorized redirect URIs you can specify http://localhost/oauth2callback
-    Click create the OAuth 2.0 consent screen and we will get the credentials from the credentials page.
-5. The Client ID and Client secret of the new OAuth client we use in the example scripts below.
+ 5. Fill in a name you like for the OAuth 2.0 client ID.
+ 6. For Authorized redirect URIs you can specify http://localhost/oauth2callback
+ 7. Click create the OAuth 2.0 consent screen and we will get the credentials from the credentials page.
+ 8. The Client ID and Client secret of the new OAuth client we use in the example scripts below.
 
 
 ## Getting the authorization code
