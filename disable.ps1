@@ -1,4 +1,4 @@
-#2020-10-26
+#2020-10-28
 $config = ConvertFrom-Json $configuration;
  
 #Initialize default properties
@@ -34,11 +34,12 @@ try{
             Accept = "application/json";
         }
         $body = $account | ConvertTo-Json -Depth 10
-        $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$aRef" -Method PUT -Headers $authorization -Body $body -Verbose:$false
+        $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" -Method PUT -Headers $authorization -Body $body -Verbose:$false
     }
     $success = $True;
     $auditMessage = " successfully";
 }catch{
+    $auditMessage = " : General error $($_)";
     Write-Error -Verbose $_;  
 }
  
