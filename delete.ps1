@@ -1,4 +1,4 @@
-#2020-10-26
+#2020-10-28
 $config = ConvertFrom-Json $configuration;
  
 #Initialize default properties
@@ -28,8 +28,7 @@ try{
             'Content-Type' = "application/json";
             Accept = "application/json";
         }
-        $body = $account | ConvertTo-Json -Depth 10
-        $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$aRef" -Method DELETE -Headers $authorization -Body $body -Verbose:$false
+        $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" -Method DELETE -Headers $authorization -Verbose:$false
     }
     $success = $True;
     $auditMessage = " successfully";
