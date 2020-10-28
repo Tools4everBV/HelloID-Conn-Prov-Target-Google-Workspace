@@ -1,10 +1,10 @@
-#2020-10-26
+#2020-10-28
 $config = ConvertFrom-Json $configuration;
  
 #Initialize default properties
 $success = $False;
 $p = $person | ConvertFrom-Json
-$auditMessage = "Account for person " + $p.DisplayName + " not created successfully";
+$auditMessage = "Account for person $($p.DisplayName) not created successfully";
  
 #Defaults, create only
 $defaultPassword = [System.Web.Security.Membership]::GeneratePassword(10, 0); ##Method doesn't work with cloud agent.
@@ -143,6 +143,7 @@ $account = @{
     $success = $True;
     $auditMessage = " successfully"; 
 }catch{
+    $auditMessage = " : General error $($_)";
     Write-Error -Verbose $_; 
 }
  
