@@ -1,21 +1,17 @@
 # HelloID-Conn-Prov-Target-GSuite
-HelloID Provisioning Target Connector for Google GSuite
+In this example we are going to connect to the Google Directory API (https://developers.google.com/admin-sdk/directory) using OAuth2.0 and the Powershell.
 
-In this example we are going to connect to the Google API using OAuth2.0 and the Powershell Invoke-RestMethod cmdlet. Before we can start scripting in Powershell using the example script below, we first need to get a ClientId, ClientSecret, AuthCode and finally the Access and Refresh tokens.
-
-## Getting the Google API access
-Go to Google Developers Console and create a new project by clicking on the top bar and choose new project.
-Give your project a name and click create.
-When you are done, click the top bar again and select your newly created project.
-You will see the empty dashboard where we need to select which API we want to interact with, In this example we are managing user accounts so we selected the Admin SDK. Click Enable after which you will be redirected back to the dashboard.
-
-As stated on the dashboard, go to the credentials menu item and click on + Create Credentials and choose OAuth client ID.
-
-Application type choose Web application.
-Fill in a name you like for the OAuth 2.0 client ID.
-For Authorized redirect URIs you can specify http://localhost/oauth2callback
-Click create the OAuth 2.0 consent screen and we will get the credentials from the credentials page.
-The Client ID and Client secret of the new OAuth client we use in the example scripts below.
+## Setting up the Google API access
+ - Go to Google Developers Console and create a new project by clicking on the top bar and choose new project.
+ - Give your project a name and click create.
+ - When you are done, click the top bar again and select your newly created project.
+ - You will see the empty dashboard where we need to select which API we want to interact with, In this example we are managing user accounts so we selected the Admin SDK. Click Enable after which you will be redirected back to the dashboard.
+ - As stated on the dashboard, go to the credentials menu item and click on + Create Credentials and choose OAuth client ID.
+ - Application type choose Web application.
+  - Fill in a name you like for the OAuth 2.0 client ID.
+  - For Authorized redirect URIs you can specify http://localhost/oauth2callback
+  - Click create the OAuth 2.0 consent screen and we will get the credentials from the credentials page.
+- The Client ID and Client secret of the new OAuth client we use in the example scripts below.
 
 
 ## Getting the authorization code
