@@ -54,6 +54,7 @@ try{
     $success = $True;
     $auditMessage = " successfully";
 }catch{
+    $auditMessage = " : General error $($_)";
     Write-Error -Verbose $_; 
 }
  
