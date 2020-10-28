@@ -3,7 +3,7 @@ $config = ConvertFrom-Json $configuration;
 
 #Initialize default properties
 $success = $False;
-$auditMessage = "Membership for person " + $p.DisplayName + " not removed successfully";
+$auditMessage = "Membership for person $($p.DisplayName) not removed successfully";
  
 $p = $person | ConvertFrom-Json;
 $m = $manager | ConvertFrom-Json;
@@ -40,6 +40,7 @@ if(-Not($dryRun -eq $True)) {
         $auditMessage = " successfully";
     }catch
     {
+            $auditMessage = " : General error $($_)";
             Write-Error -Verbose $_; 
     }
 }
