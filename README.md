@@ -13,19 +13,21 @@ In this example we are going to connect to the Google Directory API (https://dev
 
 
 ## Getting the authorization code
-With the authorization code, we can get the refresh token. We only need the refresh token, so the easiest way to get this one is to opening the endpoint in the browser, authenticate and grab the code from the address bar.
-
-To get the authorization code please use the URL below and replace the {replaceclientid} with the values from the OAuth client we created before.
-
-
+With the authorization code, we can get the refresh token. We only need the refresh token. 
+1. To get the authorization code please use the URL below and replace the {replaceclientid} with the values from the OAuth client we created before.
+```
 https://accounts.google.com/o/oauth2/auth?client_id={replaceclientid}&scope=https://www.googleapis.com/auth/admin.directory.user https://www.googleapis.com/auth/admin.directory.group&response_type=code&redirect_uri=http://localhost/oauth2callback&access_type=offline&approval_prompt=force
-
-After you have been authenticated, the tequest will be redirected to http://localhost/oauth2callback?code=4/QhUXhB********************z9jGKkhvac2&. Copy the code without the & at the end and store it somewhere, we will need this one later.
+```
+2. Open the URL in a webbrowser of your choosing.
+3. The browser will be redirected to the redirect URI. We will need to copy the code value out of the URL in the address bar, so we can obtain a refresh token in the next section.
+```
+Example
+http://localhost/oauth2callback?code=4/QhUXhB********************z9jGKkhvac2&
+The code would be 4/QhUXhB********************z9jGKkhvac2&
+```
 
 ## Getting the refreshtoken
-To exchange the Authorization code for the refresh token, we will use Powershell to make a call to https://www.googleapis.com/oauth2/v4/token. 
-Fill in Authorization code, ClienId, Client Secret and redirect Uri from the Google Developer Console and run the PowerShell script below. It will store the refresh token in a text file so you can use it later on.
+1. To exchange the Authorization code for the refresh token, we will use Powershell to make a call to https://www.googleapis.com/oauth2/v4/token. 
+2. Fill in Authorization code, Client Id, Client Secret and Redirect Uri from the Google Developer Console and run the refreshtoken.ps1 in the repo. It will store the refresh token in a text file so you can use it later on.
 
-The claimed authorization code can be exchanged for a refreshtoken only once, otherwise you have to request a new athorization code as described above.
-
-See refreshtoken.ps1
+Note: The claimed authorization code can be exchanged for a refreshtoken only once, otherwise you have to request a new athorization code as described above.
