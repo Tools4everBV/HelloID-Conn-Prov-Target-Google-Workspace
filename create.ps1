@@ -60,6 +60,8 @@ $account = @{
                     })
 }
 
+try
+{
 # exchange the refresh token for an access token
     $requestUri = "https://www.googleapis.com/oauth2/v4/token"
         
