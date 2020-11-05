@@ -71,7 +71,7 @@ $config = @{
         {
             if($gsuiteUser.primaryEmail -eq $username)
             {
-                $result = @{ id = $person.ID; email = $gsuiteUser.primaryEmail; userId = $gsuiteUser.id; }
+                $result = [PSCustomObject]@{ id = $person.ID; email = $gsuiteUser.primaryEmail; userId = $gsuiteUser.id; }
                 [void]$results.match.Add($result);
                 break;
             }
@@ -81,7 +81,13 @@ $config = @{
         $i++;
     }
 
+#Duplicate Correlations
+    $duplicates = ($results.match | Group-Object -Property userId) | Where-Object { $_.Count -gt 1 } 
+
 #Results
     Write-Verbose -Verbose "$($results.create.count) Create(s)"
     Write-Verbose -Verbose "$($results.match.count) Correlation(s)"
+    Write-Verbose -Verbose "$($duplicates.count) Duplicate Correlation(s)"
+
     $results.create | Out-GridView
+    if($duplicates.count -gt 0) { $duplicates | Out-GridView } 
