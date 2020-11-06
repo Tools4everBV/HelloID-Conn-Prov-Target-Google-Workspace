@@ -7,7 +7,7 @@ $p = $person | ConvertFrom-Json
 $auditMessage = "Account for person $($p.DisplayName) not created successfully";
  
 #Defaults, create only
-$defaultPassword = [System.Web.Security.Membership]::GeneratePassword(10, 0); ##Method doesn't work with cloud agent.
+$defaultPassword = [System.Web.Security.Membership]::GeneratePassword(10, 0); ##Method doesn't work with cloud agent. See https://github.com/Tools4everBV/HelloID-Conn-Prov-HelperFunctions/blob/master/PowerShell/Algorithms/password.random.cloudagent.ps1
 $defaultDomain = "yourdomain.com";
 $defaultOrgUnitPath = "/Disabled";
 $defaultSuspended = $true;
