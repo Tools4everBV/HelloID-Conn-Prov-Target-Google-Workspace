@@ -1,6 +1,6 @@
-## Correlation Report by primaryEmail
-## The purpose of this script is to pull in Source Data and check if we link
-## accounts by generated email address. It will then report any accounts/persons
+## Correlation Report by externalId
+## The purpose of this script is to pull in Source Data and check if we can link
+## existing accounts by id. It will then report any accounts/persons
 ## that match up, need to be created, or we have multiple matches for.
 
 ## Instructions
