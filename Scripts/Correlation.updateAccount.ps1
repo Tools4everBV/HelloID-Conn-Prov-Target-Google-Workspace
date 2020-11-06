@@ -9,10 +9,10 @@
 
 #Settings
 $config = @{ 
-                #clientId = "{GOOGLE CLIENT ID}";
-                #clientSecret = "{GOOGLE CLIENT SECRET}";
-                #redirectUri = "http://localhost/oauth2callback";
-                #refreshToken = "{GOOGLE REFRESH TOKEN}";
+                clientId = "{GOOGLE CLIENT ID}";
+                clientSecret = "{GOOGLE CLIENT SECRET}";
+                redirectUri = "http://localhost/oauth2callback";
+                refreshToken = "{GOOGLE REFRESH TOKEN}";
                 ignoreExistingData = $false;
                 csvPath = "C:\temp\GoogleLink.csv"; # two columns: ID, userKey
             }
