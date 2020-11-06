@@ -1,3 +1,13 @@
+## Correlation Report by primaryEmail
+## The purpose of this script is to pull in Source Data and check if we link
+## accounts by generated email address. It will then report any accounts/persons
+## that match up, need to be created, or we have multiple matches for.
+
+## Instructions
+## 1. Update Google API Setings
+## 2. Add Source Data
+## 3. Update $username for the generated username match on
+
 #Settings
 $config = @{ 
                 clientId = "{GOOGLE CLIENT ID}";
