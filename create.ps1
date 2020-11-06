@@ -1,4 +1,4 @@
-#2020-11-6
+#2020-11-06
 $config = ConvertFrom-Json $configuration;
  
 #Initialize default properties
