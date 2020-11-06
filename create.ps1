@@ -1,4 +1,4 @@
-#2020-10-29
+#2020-11-6
 $config = ConvertFrom-Json $configuration;
  
 #Initialize default properties
@@ -92,7 +92,7 @@ try
     
     if($correlationResponse.users.count -gt 0)
     {
-        Write-Verbose -Message "Existing Account found" -Verbose
+        Write-Verbose "Existing Account found" -Verbose
         
         $aRef = $correlationResponse.users[0].id;
         
