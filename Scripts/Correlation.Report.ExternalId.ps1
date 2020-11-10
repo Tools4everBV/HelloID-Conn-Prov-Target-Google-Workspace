@@ -74,7 +74,11 @@ $config = @{
     }
 
 #Duplicate Correlations
-    $duplicates = ($results.match | Group-Object -Property userId) | Where-Object { $_.Count -gt 1 } 
+    $duplicates = [System.Collections.ArrayList]@();
+    $duplicatesbyUserId = ($results.match | Group-Object -Property userId) | Where-Object { $_.Count -gt 1 }
+    if($duplicatesbyUserId -is [System.Array]) { $duplicates.AddRange($duplicatesbyUserId) } else { $duplicates.Add($duplicatesbyUserId) };
+    $duplicatesbyId = ($results.match | Group-Object -Property Id) | Where-Object { $_.Count -gt 1 }
+    if($duplicatesbyId -is [System.Array]) { $duplicates.AddRange($duplicatesbyId) } else { $duplicates.Add($duplicatesbyId) };
 
 #Results
     Write-Verbose -Verbose "$($results.create.count) Create(s)"
