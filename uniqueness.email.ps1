@@ -8,8 +8,6 @@
 $p = $person | ConvertFrom-Json;
 $a = $account | ConvertFrom-Json;
 
-$NonUniqueFields = [System.Collections.ArrayList]@();
-
 if($dryRun -eq $True) {
     Write-Verbose -Verbose "Dry run for uniqueness check on external systems"
 }
@@ -100,14 +98,14 @@ catch
     Write-Verbose -Verbose "Failed to Check Google GSuite for uniqueness"
     Write-Verbose -Verbose $_;
     $success = $false;
-    $NonUniqueFields = "mail";
+    $NonUniqueFields = @("mail");
 }
 
 # Build up result
 $result = [PSCustomObject]@{
     Success = $success;
     # Add field name as string when field is not unique
-    NonUniqueFields = @()
+    NonUniqueFields = $NonUniqueFields;
 };
 
 # Send result back
