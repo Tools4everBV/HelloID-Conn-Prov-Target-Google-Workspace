@@ -84,7 +84,7 @@ try{
         {
             $success = $False;
             Write-Verbose -Verbose "$($a.AdditionalFields.mail) is not unique in Google GSuite [Conflict]"
-            $NonUniqueFields = "mail";
+            $NonUniqueFields = @("mail");
         }
         else
         {
