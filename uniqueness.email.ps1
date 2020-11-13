@@ -1,6 +1,11 @@
-#Active Directory mail attribute, check Google GSuite Email Addresses
+# Active Directory mail attribute, check Google GSuite Email Addresses
+# 1. Checks for Correlated accounts
+####  - If Correlated Account(s) is available check to see if assigned. If already assigned, Success
+# 2. Check all Google GSuite email addresses for conflict
+####  - If there is a conflict then Uniqueness will Fail. Else Success
 
 # Initialize default properties
+$p = $person | ConvertFrom-Json;
 $a = $account | ConvertFrom-Json;
 
 $NonUniqueFields = [System.Collections.ArrayList]@();
@@ -36,24 +41,58 @@ try{
         Accept = "application/json";
     }
 
-    #Check if account exists (externalId), else create
-    $parameters = @{
+    #Check for correlated accounts
+     $parameters = @{
         customer = "my_customer";
-        query = "email=$($a.mail)";
+        query = "externalId=$($p.ExternalId)";
         projection="FULL";
     }
-
     $correlationResponse = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users" -Method GET -Body $parameters -Headers $authorization -Verbose:$false;
+    
     if($correlationResponse.users.count -gt 0)
     {
-        $success = $False;
-        Write-Verbose -Verbose "$($a.AdditionalFields.mail) is not unique in Google GSuite"
-        $NonUniqueFields = "mail";
+        if($correlationResponse.users.count -gt 1)
+        {
+             Write-Verbose "Multiple Correlated Accounts found" -Verbose
+        }
+        else
+        {
+            Write-Verbose "Correlated Account found" -Verbose
+        }
+        
+        $existingEmails = $correlationResponse.users.emails | Select -ExpandProperty Address;
+        
+    }
+
+    if($existingEmails -contains $a.AdditionalFields.mail)
+    {
+            $success = $True;
+            Write-Verbose -Verbose "$($a.AdditionalFields.mail) is unique in Google GSuite [Correlated]"
     }
     else
     {
-        $success = $True;
-        Write-Verbose -Verbose "$($a.AdditionalFields.mail) is unique in Google GSuite"
+        $uniquenessResponse = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users" -Method GET -Body $parameters -Headers $authorization -Verbose:$false;
+
+        #Check if account exists (externalId), else create
+        $parameters = @{
+            customer = "my_customer";
+            query = "email=$($a.AdditionalFields.mail)";
+            projection="FULL";
+        }
+
+        $uniquenessResponse = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users" -Method GET -Body $parameters -Headers $authorization -Verbose:$false;
+
+        if($uniquenessResponse.users.count -gt 0)
+        {
+            $success = $False;
+            Write-Verbose -Verbose "$($a.AdditionalFields.mail) is not unique in Google GSuite [Conflict]"
+            $NonUniqueFields = "mail";
+        }
+        else
+        {
+            $success = $True;
+            Write-Verbose -Verbose "$($a.AdditionalFields.mail) is unique in Google GSuite [No Match]"
+        }
     }
 }
 catch
