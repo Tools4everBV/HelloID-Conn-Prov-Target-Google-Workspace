@@ -16,7 +16,7 @@ In this example we are going to connect to the Google Directory API (https://dev
 With the authorization code, we can get the refresh token. We only need the refresh token. 
 1. To get the authorization code please use the URL below and replace the {replaceclientid} with the values from the OAuth client we created before.
 ```
-https://accounts.google.com/o/oauth2/auth?client_id={replaceclientid}&scope=https://www.googleapis.com/auth/admin.directory.user https://www.googleapis.com/auth/admin.directory.group&response_type=code&redirect_uri=http://localhost/oauth2callback&access_type=offline&approval_prompt=force
+https://accounts.google.com/o/oauth2/auth?client_id={replaceclientid}&scope=https://www.googleapis.com/auth/admin.directory.user https://www.googleapis.com/auth/admin.directory.group https://www.googleapis.com/auth/apps.licensing&response_type=code&redirect_uri=http://localhost/oauth2callback&access_type=offline&approval_prompt=force
 ```
 2. Open the URL in a webbrowser of your choosing.
 3. The browser will be redirected to the redirect URI. We will need to copy the code value out of the URL in the address bar, so we can obtain a refresh token in the next section.
