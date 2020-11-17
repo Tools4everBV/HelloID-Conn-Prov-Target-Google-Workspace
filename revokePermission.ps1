@@ -1,4 +1,4 @@
-#2020-10-26
+#2020-11-17
 $config = ConvertFrom-Json $configuration;
 
 #Initialize default properties
@@ -35,13 +35,35 @@ if(-Not($dryRun -eq $True)) {
         #Get Member Email
         $userResponse = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" -Method GET -Headers $authorization -Verbose:$false
  
-        $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/groups/$($pRef.Id)/members/$($userResponse[0].primaryEmail)" -Method DELETE -Headers $authorization
-        $success = $True;
-        $auditMessage = " successfully";
+        if($pRef.Type -eq "Group")
+        {
+            $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/groups/$($pRef.Id)/members/$($userResponse[0].primaryEmail)" -Method DELETE -Headers $authorization
+            $success = $True;
+            $auditMessage = " successfully";
+        }
+        elseif($pRef.Type -eq "License")
+        {
+             $response = Invoke-RestMethod -Uri "https://www.googleapis.com/apps/licensing/v1/product/$($pRef.ProductId)/sku/$($pRef.SkuId)/user/$($userResponse[0].primaryEmail)" -Method DELETE -Headers $authorization
+             $success = $True;
+             $auditMessage = " successfully";
+        }
+        else
+        {
+            $success = $False;
+            $auditMessage = " not successfully";
+        }
     }catch
     {
-            $auditMessage = " : General error $($_)";
-            Write-Error -Verbose $_; 
+            if($_.Exception.Response.StatusCode.value__ -eq 412)
+            {
+                $success = $True;
+                $auditMessage = " successfully (Auto License un-assignment is not allowed.)";
+            }
+            else
+            {
+                $auditMessage = " : General error $($_)";
+                Write-Error -Verbose $_; 
+            }
     }
 }
  
