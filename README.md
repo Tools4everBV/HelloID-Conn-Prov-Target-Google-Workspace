@@ -31,3 +31,6 @@ The code would be 4/QhUXhB********************z9jGKkhvac2&
 2. Fill in Authorization code, Client Id, Client Secret and Redirect Uri from the Google Developer Console and run the refreshtoken.ps1 in the repo. It will store the refresh token in a text file so you can use it later on.
 
 Note: The claimed authorization code can be exchanged for a refreshtoken only once, otherwise you have to request a new athorization code as described above.
+
+
+Permissions include Groups and Licenses. Licenses are statically defined because there is not API available to pull this information.
