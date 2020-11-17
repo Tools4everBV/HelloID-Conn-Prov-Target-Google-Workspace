@@ -1,4 +1,4 @@
-#2020-10-28
+#2020-11-17
 $config = ConvertFrom-Json $configuration;
  
 #Initialize default properties
@@ -33,19 +33,42 @@ if(-Not($dryRun -eq $True)) {
                 Accept = "application/json";
             }
          
- 
         #Get Member Email
         $userResponse = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" -Method GET -Headers $authorization -Verbose:$false
- 
-         
-        $account = @{
-                    email = $userResponse[0].primaryEmail;
-                    role = "MEMBER";
+        Write-Verbose -Verbose "$($userResponse[0].primaryEmail)";
+
+        if($pRef.Type -eq "Group")
+        {
+            Write-Verbose -Verbose "Applying Group Permission"
+            
+            
+            $account = @{
+                        email = $userResponse[0].primaryEmail;
+                        role = "MEMBER";
+            }
+
+            $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/groups/$($pRef.Id)/members" -Body ($account | ConvertTo-Json) -Method POST -Headers $authorization
+            $success = $True;
+            $auditMessage = " successfully";
         }
- 
-        $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/groups/$($pRef.Id)/members" -Body ($account | ConvertTo-Json) -Method POST -Headers $authorization
-        $success = $True;
-        $auditMessage = " successfully";
+        elseif($pRef.Type -eq "License")
+        {
+            Write-Verbose -Verbose "Applying License Permission"
+
+            $account = @{   
+                            userId = $userResponse[0].primaryEmail;
+            }
+            Write-Verbose -Verbose "https://licensing.googleapis.com/apps/licensing/v1/product/$($pRef.ProductId)/sku/$($pRef.SkuId)/user";
+            $response = Invoke-RestMethod -Uri "https://licensing.googleapis.com/apps/licensing/v1/product/$($pRef.ProductId)/sku/$($pRef.SkuId)/user" -Body ($account | ConvertTo-Json) -Method POST -Headers $authorization
+            $success = $True;
+            $auditMessage = " successfully";
+        }
+        else
+        {
+            $success = $False;
+            $auditMessage = " not successfully";
+        }
+        
     }catch
     {
             Write-Verbose -Verbose "Status Code: $($_.Exception.Response.StatusCode.value__)"
@@ -53,6 +76,11 @@ if(-Not($dryRun -eq $True)) {
             {
                 $success = $True;
                 $auditMessage = " successfully (already exists)";
+            }
+            if($_.Exception.Response.StatusCode.value__ -eq 412)
+            {
+                $success = $True;
+                $auditMessage = " successfully (already assigned)";
             }
             else
             {
