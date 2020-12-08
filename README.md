@@ -1,6 +1,24 @@
 # HelloID-Conn-Prov-Target-GSuite
 In this example we are going to connect to the Google Directory API (https://developers.google.com/admin-sdk/directory) using OAuth2.0 and the Powershell.
 
+<!-- TABLE OF CONTENTS -->
+## Table of Contents
+* [Getting Started](#getting-started)
+* [Setting up the Google API access](#setting-up-the-google-api-access)
+* [Getting the authorization code](#getting-the-authorization-code)
+* [Getting the refreshtoken](#getting-the-refreshtoken)
+
+<!-- GETTING STARTED -->
+## Getting Started
+By using this connector you will have the ability to create one of the following items in Google GSuite:
+
+* Create user account
+* Enable user account
+* Disable user account
+* Delete user account
+* Manage groupmemberships (grant / revoke)
+
+
 ## Setting up the Google API access
  1. Go to Google Developers Console and create a new project by clicking on the top bar and choose new project. Give your project a name and click create. When you are done, click the top bar again and select your newly created project.
  2. You will see the empty dashboard where we need to select which API we want to interact with, In this example we are managing user accounts so we selected the Admin SDK. Click Enable after which you will be redirected back to the dashboard.
