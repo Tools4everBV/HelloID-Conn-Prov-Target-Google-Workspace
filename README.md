@@ -17,6 +17,8 @@ By using this connector you will have the ability to create one of the following
 * Disable user account
 * Delete user account
 * Manage groupmemberships (grant / revoke)
+ * Group
+ * Licenses
 
 
 ## Setting up the Google API access
