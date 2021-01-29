@@ -7,11 +7,15 @@ $p = $person | ConvertFrom-Json
 $auditMessage = "Account for person $($p.DisplayName) not created successfully";
  
 #Defaults, create only
-$defaultPassword = [System.Web.Security.Membership]::GeneratePassword(10, 0); ##Method doesn't work with cloud agent. See https://github.com/Tools4everBV/HelloID-Conn-Prov-HelperFunctions/blob/master/PowerShell/Algorithms/password.random.cloudagent.ps1
-$defaultDomain = "yourdomain.com";
-$defaultOrgUnitPath = "/Disabled";
-$defaultSuspended = $true;
-
+	$defaultDomain = "yourdomain.com";
+	$defaultOrgUnitPath = "/Disabled";
+	$defaultSuspended = $true;
+	
+	#Password
+	$defaultPassword = [System.Web.Security.Membership]::GeneratePassword(10, 0); ##Method doesn't work with cloud agent. See https://github.com/Tools4everBV/HelloID-Conn-Prov-HelperFunctions/blob/master/PowerShell/Algorithms/password.random.cloudagent.ps1
+	$passwordHash = ([System.BitConverter]::ToString((New-Object -TypeName System.Security.Cryptography.SHA1CryptoServiceProvider).ComputeHash((New-Object -TypeName System.Text.UTF8Encoding).GetBytes($defaultPassword)))).Replace("-","");
+	$usePasswordHash = $true;
+	
 #Primary Email Generation
 # 1. <First Name>.<Last Name>@<Domain> (e.g john.williams@yourdomain.com)
 # 2. <First Name>.<Last Name><Iterator>@<Domain> (e.g john.williams01@yourdomain.com)
@@ -132,8 +136,18 @@ try
         }
         
         #Safe measure, set defaults 
-        $account.password = $defaultPassword;
-        $account.orgUnitPath = $defaultOrgUnitPath;
+		
+		if($usePasswordHash -eq $true)
+		{
+			$account.password = $passwordHash;
+			$account.hashFunction = "SHA-1";
+		}
+		else
+		{
+			$account.password = $defaultPassword;
+		}
+        
+		$account.orgUnitPath = $defaultOrgUnitPath;
         $account.suspended = $defaultSuspended;
         
         if(-Not($dryRun -eq $True)){
