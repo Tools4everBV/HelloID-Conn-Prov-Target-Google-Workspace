@@ -43,7 +43,9 @@ if(-Not($dryRun -eq $True)) {
         }
         elseif($pRef.Type -eq "License")
         {
-             $response = Invoke-RestMethod -Uri "https://www.googleapis.com/apps/licensing/v1/product/$($pRef.ProductId)/sku/$($pRef.SkuId)/user/$($userResponse[0].primaryEmail)" -Method DELETE -Headers $authorization
+             $uri = "https://licensing.googleapis.com/apps/licensing/v1/product/$($pRef.ProductId)/sku/$($pRef.SkuId)/user/$($userResponse[0].primaryEmail)";
+             Write-Verbose -Verbose $uri
+             $response = Invoke-RestMethod -Uri $uri -Method DELETE -Headers $authorization -ContentType "application/json; charset=utf-8";
              $success = $True;
              $auditMessage = " successfully";
         }
@@ -66,13 +68,13 @@ if(-Not($dryRun -eq $True)) {
             }
     }
 }
- 
+
  
 #build up result
 $result = [PSCustomObject]@{
+    AccountReference = $pRef
     Success= $success;
     AuditDetails=$auditMessage;
-    Account = $account;
 };
  
 Write-Output $result | ConvertTo-Json -Depth 10;
