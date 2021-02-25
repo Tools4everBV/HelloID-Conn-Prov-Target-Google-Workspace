@@ -131,7 +131,7 @@ try
         $account.orgUnitPath = $correlationResponse.users[0].orgUnitPath
 
         # Update Existing User
-        if(-Not $dryRun){
+        if(-Not($dryRun -eq $True)){
             $previousAccount = $correlationResponse.users[0]
 
             $splat = [ordered]@{
@@ -143,10 +143,12 @@ try
             }
             $newAccount = Invoke-RestMethod @splat
             $auditMessage = "Found and linked account with PrimaryEmail $($newAccount.primaryEmail)";
+            Write-Information ("Updated Existing Account: {0}" -f ($newAccount | ConvertTo-Json -Depth 10))
         }
     }
     else
     {
+        # Verify Primary Email Uniqueness (NOTE: only checks against other Google accounts)
         $Iterator = 0
         do {
             #Check if username taken
@@ -192,7 +194,7 @@ try
         $account.orgUnitPath = $defaultOrgUnitPath
         $account.suspended = $defaultSuspended
         
-        if(-Not $dryRun){
+        if(-Not($dryRun -eq $True)){
             $splat = [ordered]@{
                 Body = $account | ConvertTo-Json -Depth 10
                 Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
@@ -202,7 +204,9 @@ try
             }
             $newAccount = Invoke-RestMethod @splat
             $aRef = $newAccount.id
-            $newAccount.password = $defaultPassword  # Added for use in Onboard Notification
+            Write-Information ("New Account Created:  {0}" -f ($newAccount | ConvertTo-Json -Depth 10))
+            # Add Password for use in Onboard Notification
+            $newAccount | Add-Member -NotePropertyName password -NotePropertyValue $defaultPassword
             $auditMessage = "Created account with PrimaryEmail $($newAccount.primaryEmail)"
         }
     }
@@ -211,7 +215,7 @@ try
     $auditMessage = "Error creating account with PrimaryEmail $($account.primaryEmail) - Error: $($_)"
     Write-Error $_
 }
- 
+
 #build up result
 $result = [PSCustomObject]@{
 	Success = $success
