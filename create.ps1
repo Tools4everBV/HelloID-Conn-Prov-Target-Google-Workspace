@@ -1,28 +1,72 @@
-#2021-02-02 - Create Google Account
-$config = ConvertFrom-Json $configuration
+#2020-11-06
+$config = ConvertFrom-Json $configuration;
  
 #Initialize default properties
+$success = $False;
 $p = $person | ConvertFrom-Json
-$success = $False
-$auditMessage = ""
-
-# Get Mail from Active Directory target system
-$ad_mail = $p.Accounts.MicrosoftActiveDirectory.mail
-
+$auditMessage = "Account for person $($p.DisplayName) not created successfully";
+ 
 #Defaults, create only
-#$defaultPassword = [System.Web.Security.Membership]::GeneratePassword(10, 0) ##Method doesn't work with cloud agent. See https://github.com/Tools4everBV/HelloID-Conn-Prov-HelperFunctions/blob/master/PowerShell/Algorithms/password.random.cloudagent.ps1
-$defaultPassword = ("00{0}" -f $p.ExternalId)
-$passwordHash = ([System.BitConverter]::ToString((New-Object -TypeName System.Security.Cryptography.SHA1CryptoServiceProvider).ComputeHash((New-Object -TypeName System.Text.UTF8Encoding).GetBytes($defaultPassword)))).Replace("-","")
-$usePasswordHash = $true
-$defaultDomain = $config.defaultDomain
-$defaultOrgUnitPath = "/Student Accounts/Inactive"
-$defaultSuspended = $true
-$max_namegen_iterations = 10
+	$defaultDomain = "yourdomain.com";
+	$defaultOrgUnitPath = "/Disabled";
+	$defaultSuspended = $true;
+	
+	#Password
+	$defaultPassword = [System.Web.Security.Membership]::GeneratePassword(10, 0); ##Method doesn't work with cloud agent. See https://github.com/Tools4everBV/HelloID-Conn-Prov-HelperFunctions/blob/master/PowerShell/Algorithms/password.random.cloudagent.ps1
+	$passwordHash = ([System.BitConverter]::ToString((New-Object -TypeName System.Security.Cryptography.SHA1CryptoServiceProvider).ComputeHash((New-Object -TypeName System.Text.UTF8Encoding).GetBytes($defaultPassword)))).Replace("-","");
+	$usePasswordHash = $true;
+	
+#Primary Email Generation
+# 1. <First Name>.<Last Name>@<Domain> (e.g john.williams@yourdomain.com)
+# 2. <First Name>.<Last Name><Iterator>@<Domain> (e.g john.williams01@yourdomain.com)
+function get_username {
+[cmdletbinding()]
+Param (
+[string]$firstName,
+[string]$lastName,
+[string]$domain,
+[int]$Iteration
+   ) 
+    Process 
+    {
+        $suffix = "";
+        if($Iteration -gt 0) { $suffix = ("00$($Iteration+1)").substring(1,2); };
+        
+        $temp_fn = $firstName;
+        $temp_ln = $lastName;
+        $temp_username = $temp_fn + "." + $temp_ln;
+        
+        $result = $temp_username + $suffix + $domain;
+        $result = $result.toLower();
+        @($result);
+    }
+}
 
-# Support Functions
-function google-refresh-accessToken()
+$username = get_username -firstName $p.Name.NickName -lastName $p.Name.FamilyName -domain $defaultDomain -Iteration 0;
+
+#Change mapping here
+#For all of the supported attributes please check https://developers.google.com/admin-sdk/directory/v1/guides/manage-users
+$account = @{
+    primaryEmail = $username
+    name = @{
+                givenName = "$($p.Name.NickName)"
+                familyName = "$($p.Name.FamilyName)"
+                fullName = "$($p.Name.NickName) $($p.Name.FamilyName)"
+            }
+    externalIds =  @(@{
+                        value = "$($p.ExternalId)"
+                        type = "organization";
+                    })
+    organizations = @(@{
+                        title = "$($p.primaryContract.Title.name)"
+                        #department = "$($p.primaryContract.custom.TeamDesc)"
+                        #costCenter = "$($p.primaryContract.costCenter.ExternalID)"
+                    })
+}
+
+try
 {
-    ### exchange the refresh token for an access token
+# exchange the refresh token for an access token
     $requestUri = "https://www.googleapis.com/oauth2/v4/token"
         
     $refreshTokenParams = @{
@@ -36,199 +80,95 @@ function google-refresh-accessToken()
     $accessToken = $response.access_token
             
     #Add the authorization header to the request
-    $authorization = [ordered]@{
+    $authorization = @{
         Authorization = "Bearer $accesstoken";
         'Content-Type' = "application/json";
         Accept = "application/json";
     }
-    $authorization
-}
 
-#Primary Email Generation
-# 1. <First Name>.<Last Name>@<Domain> (e.g john.williams@yourdomain.com)
-# 2. <First Name>.<Last Name><Iterator>@<Domain> (e.g john.williams2@yourdomain.com)
-function generate-PrimaryEmail {
-	[cmdletbinding()]
-	Param (
-		[string]$firstName,
-		[string]$lastName,
-		[string]$domain,
-		[int]$Iteration
-	) 
-	Process 
-    {
-		<#
-		$suffix = ""
-        if($Iteration -gt 0) { $suffix = "$($Iteration+1)" }
-        
-        $temp_fn = $firstName
-        $temp_ln = $lastName
-        $temp_username = $temp_fn + "." + $temp_ln
-        $temp_username = $temp_username.substring(0,[Math]::Min(20-$suffix.Length,$t.Length))
-        
-        $result = $temp_username + $suffix + $domain
-        $result = $result.toLower()
-        @($result)
-		#>
-		return $ad_mail
+    #Check if account exists (externalId), else create
+    $parameters = @{
+        customer = "my_customer";
+        query = "externalId=$($p.ExternalId)";
+        projection="FULL";
     }
-}
-
-$calc_primary_email = generate-PrimaryEmail -firstName $p.Name.NickName -lastName $p.Name.FamilyName -domain $defaultDomain -Iteration 0
-Write-Information ("Initial Generated Email: {0}" -f $calc_primary_email)
-
-#Change mapping here
-#For all of the supported attributes please check https://developers.google.com/admin-sdk/directory/v1/guides/manage-users
-$account = [ordered]@{
-    primaryEmail = $calc_primary_email
-    name = @{
-                givenName = "$($p.Name.NickName)"
-                familyName = "$($p.Name.FamilyName)"
-                fullName = "$($p.Name.NickName) $($p.Name.FamilyName)"
-            }
-    externalIds =  @(@{
-                        value = "$($p.ExternalId)"
-                        type = "custom"
-                        customType = "$($p.Custom.Role)"
-                    })
-    organizations = @(@{
-                        #title = "$($p.primaryContract.Title.name)"
-                        title = "$($p.Custom.Role)"
-                        department = "$($p.primaryContract.Department.ExternalId)"
-                        #costCenter = "$($p.primaryContract.costCenter.ExternalID)"
-                    })
-}
-Write-Information ("Initial Account: {0}" -f ($account | ConvertTo-Json -Depth 20))
-
-try
-{
-    #Add the authorization header to the request
-    $authorization = google-refresh-accessToken
-
-    #Check if account exists (based on externalId), else create
-    $splat = @{
-        Body = @{
-            customer = "my_customer"
-            query = "externalId=$($p.ExternalId)"
-            projection="FULL"
-        }
-        Uri = "https://www.googleapis.com/admin/directory/v1/users"
-        Method = 'GET'
-        Headers = $authorization
-        Verbose = $False
-    }
-    $correlationResponse = Invoke-RestMethod @splat
+    $correlationResponse = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users" -Method GET -Body $parameters -Headers $authorization -Verbose:$false;
     
     if($correlationResponse.users.count -gt 0)
     {
-        Write-Information ("Existing Account found: (Found count: {0}) {1}" -f $correlationResponse.users.count,($correlationResponse.users | ConvertTo-Json -Depth 20))
+        Write-Verbose "Existing Account found" -Verbose
         
-        $aRef = $correlationResponse.users[0].id
+        $aRef = $correlationResponse.users[0].id;
         
-        #Use existing primaryEmail and OrgUnitPath
-        $calc_primary_email = $correlationResponse.users[0].primaryEmail
-		$account.primaryEmail = $calc_primary_email
-        $account.orgUnitPath = $correlationResponse.users[0].orgUnitPath
-
-        # Update Existing User
+        #Use existing primaryEmail
+        $account.primaryEmail = $correlationResponse.users[0].primaryEmail;
+        $body = $account | ConvertTo-Json -Depth 10
+        
         if(-Not($dryRun -eq $True)){
-            $previousAccount = $correlationResponse.users[0]
-
-            $splat = [ordered]@{
-                body = ($account | ConvertTo-Json -Depth 10)
-                Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
-                Method = 'PUT'
-                Headers = $authorization 
-                Verbose = $False
-            }
-            $newAccount = Invoke-RestMethod @splat
-            $auditMessage = "Found and linked account with PrimaryEmail $($newAccount.primaryEmail)";
-            Write-Information ("Updated Existing Account: {0}" -f ($newAccount | ConvertTo-Json -Depth 10))
+           $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" -Method PUT -Headers $authorization -Body $body -Verbose:$false
         }
     }
     else
     {
-        # Verify Primary Email Uniqueness (NOTE: only checks against other Google accounts)
-        $Iterator = 0
-        do {
+        $Iterator = 0;
+        while($true)
+        {
             #Check if username taken
-            $splat = [ordered]@{
-                Body = @{
-                    customer = "my_customer"
-                    query = "Email=$($account.primaryEmail)"
-                    projection="FULL"
-                }
-                Uri = "https://www.googleapis.com/admin/directory/v1/users" 
-                Method = 'GET'
-                Headers = $authorization
-                Verbose =$False
-            }
-            $calc_primary_emailResponse = Invoke-RestMethod @splat
+            $parameters = @{
+               customer = "my_customer";
+               query = "Email=$($account.primaryEmail)";
+               projection="FULL";
+           }
+            $usernameResponse = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users" -Method GET -Body $parameters -Headers $authorization -Verbose:$false
 
-            if($calc_primary_emailResponse.users.count -gt 0)
+            if($usernameResponse.users.count -gt 0)
             {
                 #Iterate
                 Write-Verbose -Verbose "$($account.primaryEmail) already in use, iterating)"
-                $Iterator++
-				$calc_primary_email = generate-PrimaryEmail -firstName $p.Name.NickName -lastName $p.Name.FamilyName -domain $defaultDomain -Iteration $Iterator
-                $account.primaryEmail = $calc_primary_email
+                $Iterator++;
+                $account.primaryEmail = get_username -firstName $p.Name.NickName -lastName $p.Name.FamilyName -domain $defaultDomain -Iteration $Iterator;
             }
-        } while ($calc_primary_emailResponse.users.count -gt 0 -AND $Iterator -lt $max_namegen_iterations)
+            else
+            {
+                #Username available
+                break;
+            }
+        }
         
-		#Check for exceeding max namegen iterations
-		if($Iterator -ge $max_namegen_iterations)
-		{
-			throw "Max NameGen Iterations tested.  No unique Primary Email values found.  Iterated values may not be allowed in NameGen algorithm."
-		}
+        #Safe measure, set defaults 
 		
-        #Proceed with account creation, set additional defaults 
-        if($usePasswordHash -eq $true)
+		if($usePasswordHash -eq $true)
 		{
-			$account.password = $passwordHash
-			$account.hashFunction = "SHA-1"
+			$account.password = $passwordHash;
+			$account.hashFunction = "SHA-1";
 		}
 		else
 		{
-			$account.password = $defaultPassword
+			$account.password = $defaultPassword;
 		}
-        $account.orgUnitPath = $defaultOrgUnitPath
-        $account.suspended = $defaultSuspended
+        
+		$account.orgUnitPath = $defaultOrgUnitPath;
+        $account.suspended = $defaultSuspended;
         
         if(-Not($dryRun -eq $True)){
-            $splat = [ordered]@{
-                Body = $account | ConvertTo-Json -Depth 10
-                Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
-                Method = 'POST'
-                Headers = $authorization 
-                Verbose = $False
-            }
-            $newAccount = Invoke-RestMethod @splat
-            $aRef = $newAccount.id
-            Write-Information ("New Account Created:  {0}" -f ($newAccount | ConvertTo-Json -Depth 10))
-            # Add Password for use in Onboard Notification
-            $newAccount | Add-Member -NotePropertyName password -NotePropertyValue $defaultPassword
-            $auditMessage = "Created account with PrimaryEmail $($newAccount.primaryEmail)"
+           $body = $account | ConvertTo-Json -Depth 10
+           $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" -Method POST -Headers $authorization -Body $body -Verbose:$false
+           $aRef = $response.id
         }
     }
-    $success = $True
+    $success = $True;
+    $auditMessage = " successfully"; 
 }catch{
-    $auditMessage = "Error creating account with PrimaryEmail $($account.primaryEmail) - Error: $($_)"
-    Write-Error $_
+    $auditMessage = " : General error $($_)";
+    Write-Error -Verbose $_; 
 }
-
+ 
 #build up result
 $result = [PSCustomObject]@{
-	Success = $success
-	AccountReference = $aRef
-	AuditDetails = $auditMessage
-	Account = $newAccount
-	PreviousAccount = $previousAccount
-	
-	# Optionally return data for use in other systems
-    ExportData = [PSCustomObject]@{
-        PrimaryEmail = $newAccount.PrimaryEmail
-        OrgUnitPath = $newAccount.orgUnitPath
-    }
-}
+    Success= $success;
+    AccountReference= $aRef;
+    AuditDetails=$auditMessage;
+    Account= $account;
+};
   
-Write-Output ($result | ConvertTo-Json -Depth 10)
+Write-Output $result | ConvertTo-Json -Depth 10;

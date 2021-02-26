@@ -36,14 +36,5 @@
       "type": "password",
       "required": true
     }
-  },
-  {
-    "key": "defaultDomain",
-    "type": "input",
-    "defaultValue": "MyDomain.com",
-    "templateOptions": {
-      "label": "Default Domain",
-      "required": true
-    }
   }
 ]
