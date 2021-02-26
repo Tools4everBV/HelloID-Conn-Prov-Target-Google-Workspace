@@ -99,27 +99,19 @@ if(-Not($dryRun -eq $True)) {
         }
     }catch
     {
-            Write-Verbose -Verbose "Status Code: $($_.Exception.Response.StatusCode.value__)"
-            Write-Verbose -Verbose ($_ | ConvertFrom-Json).error.message;
-            if($_.Exception.Response.StatusCode.value__ -eq 409)
+        Write-Verbose -Verbose "Status Code: $($_.Exception.Response.StatusCode.value__)"
+        Write-Verbose -Verbose ($_ | ConvertFrom-Json).error.message;
+        if($_.Exception.Response.StatusCode.value__ -eq 409)
+        {
+            $success = $True;
+            $auditMessage = " successfully (already exists)";
+        }
+        if($_.Exception.Response.StatusCode.value__ -eq 412)
+        {
+            if( ($_ | ConvertFrom-Json).error.message -like "*User already has a license for the specified product and SKU*" )
             {
-                $success = $True;
-                $auditMessage = " successfully (already exists)";
-            }
-            if($_.Exception.Response.StatusCode.value__ -eq 412)
-            {
-                
-                if( ($_ | ConvertFrom-Json).error.message -like "*User already has a license for the specified product and SKU*" )
-                {
-                    $success = $true;
-                    $auditMessage = " successfully (already assigned)";
-                }
-                else
-                {
-                    $success = $false;
-                    $auditMessage = " : General error $($_)";
-                }
-
+                $success = $true;
+                $auditMessage = " successfully (already assigned)";
             }
             else
             {
@@ -129,8 +121,8 @@ if(-Not($dryRun -eq $True)) {
         }
         else
         {
-            $auditMessage += " : General error $($_)"
-            Write-Error $_
+            $success = $false;
+            $auditMessage = " : General error $($_)";
         }
     }
 }
