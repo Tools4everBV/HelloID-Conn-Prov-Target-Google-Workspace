@@ -36,41 +36,41 @@ function google-refresh-accessToken()
     $authorization
 }
 
-if(-Not $dryRun) {
+if(-Not($dryRun -eq $True)) {
     try
     {
         $authorization = google-refresh-accessToken
-		
+        
         #Get Member Email
-		$splat = @{
-			Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
-			Method = 'GET'
-			Headers = $authorization 
-			Verbose = $False
-		}
+        $splat = @{
+            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
+            Method = 'GET'
+            Headers = $authorization 
+            Verbose = $False
+        }
         $userResponse = Invoke-RestMethod @splat
         Write-Information "Primary Email: $($userResponse[0].primaryEmail)"
-		
+        
         if($pRef.Type -eq "Group")
         {
-			Write-Information "Revoking Group Permission"
-			$splat = @{
-				Uri = "https://www.googleapis.com/admin/directory/v1/groups/$($pRef.Id)/members/$($userResponse[0].primaryEmail)"
-				Method = 'DELETE'
-				Headers = $authorization
-			}
+            Write-Information "Revoking Group Permission"
+            $splat = @{
+                Uri = "https://www.googleapis.com/admin/directory/v1/groups/$($pRef.Id)/members/$($userResponse[0].primaryEmail)"
+                Method = 'DELETE'
+                Headers = $authorization
+            }
             $response = Invoke-RestMethod @splat
             $success = $True
             $auditMessage += " successfully"
         }
         elseif($pRef.Type -eq "License")
         {
-			Write-Information "Revoking License Permission"
-			$splat = @{
-				Uri = "https://www.googleapis.com/apps/licensing/v1/product/$($pRef.ProductId)/sku/$($pRef.SkuId)/user/$($userResponse[0].primaryEmail)" 
-				Method = 'DELETE' 
-				Headers = $authorization
-			}
+            Write-Information "Revoking License Permission"
+            $splat = @{
+                Uri = "https://www.googleapis.com/apps/licensing/v1/product/$($pRef.ProductId)/sku/$($pRef.SkuId)/user/$($userResponse[0].primaryEmail)" 
+                Method = 'DELETE' 
+                Headers = $authorization
+            }
             $response = Invoke-RestMethod @splat
             $success = $True
             $auditMessage += " successfully"
@@ -82,16 +82,16 @@ if(-Not $dryRun) {
         }
     }catch
     {
-		if($_.Exception.Response.StatusCode.value__ -eq 412)
-		{
-			$success = $True
-			$auditMessage += " successfully (Auto License un-assignment is not allowed.)"
-		}
-		else
-		{
-			$auditMessage += " : General error $($_)"
-			Write-Error -Verbose $_
-		}
+        if($_.Exception.Response.StatusCode.value__ -eq 412)
+        {
+            $success = $True
+            $auditMessage += " successfully (Auto License un-assignment is not allowed.)"
+        }
+        else
+        {
+            $auditMessage += " : General error $($_)"
+            Write-Error -Verbose $_
+        }
     }
 }
 
