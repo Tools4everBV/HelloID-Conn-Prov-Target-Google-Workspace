@@ -36,18 +36,18 @@ function google-refresh-accessToken()
     $authorization
 }
 
-if(-Not $dryRun) {
+if(-Not($dryRun -eq $True)) {
     try
     {
         $authorization = google-refresh-accessToken
 
         #Get Member Email
-		$splat = @{
-			Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
-			Method = 'GET'
-			Headers = $authorization 
-			Verbose = $False
-		}
+        $splat = @{
+            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
+            Method = 'GET'
+            Headers = $authorization 
+            Verbose = $False
+        }
         $userResponse = Invoke-RestMethod @splat
         Write-Information "$($userResponse[0].primaryEmail)"
 
@@ -59,15 +59,15 @@ if(-Not $dryRun) {
                         email = $userResponse[0].primaryEmail
                         role = "MEMBER"
             }
-			$splat = @{
-				Uri = "https://www.googleapis.com/admin/directory/v1/groups/$($pRef.Id)/members" 
-				Body = @{
-					email = $userResponse[0].primaryEmail
-					role = "MEMBER"
-				}
-				Method = 'POST'
-				Headers = $authorization
-			}
+            $splat = @{
+                Uri = "https://www.googleapis.com/admin/directory/v1/groups/$($pRef.Id)/members" 
+                Body = @{
+                    email = $userResponse[0].primaryEmail
+                    role = "MEMBER"
+                }
+                Method = 'POST'
+                Headers = $authorization
+            }
             $response = Invoke-RestMethod @splat
             $success = $True
             $auditMessage += " successfully"
@@ -77,17 +77,17 @@ if(-Not $dryRun) {
             Write-Information "Applying License Permission"
 
             $account = @{   
-				userId = $userResponse[0].primaryEmail
+                userId = $userResponse[0].primaryEmail
             }
             #Write-Information "https://licensing.googleapis.com/apps/licensing/v1/product/$($pRef.ProductId)/sku/$($pRef.SkuId)/user"
-			$splat = @{
-				Uri = "https://licensing.googleapis.com/apps/licensing/v1/product/$($pRef.ProductId)/sku/$($pRef.SkuId)/user"
-				Body = @{   
-					userId = $userResponse[0].primaryEmail
-				}
-				Method = 'POST' 
-				Headers = $authorization
-			}
+            $splat = @{
+                Uri = "https://licensing.googleapis.com/apps/licensing/v1/product/$($pRef.ProductId)/sku/$($pRef.SkuId)/user"
+                Body = @{   
+                    userId = $userResponse[0].primaryEmail
+                }
+                Method = 'POST' 
+                Headers = $authorization
+            }
             $response = Invoke-RestMethod @splat
             $success = $True
             $auditMessage += " successfully"
@@ -99,22 +99,22 @@ if(-Not $dryRun) {
         }
     }catch
     {
-		Write-Information "Status Code: $($_.Exception.Response.StatusCode.value__)"
-		if($_.Exception.Response.StatusCode.value__ -eq 409)
-		{
-			$success = $True
-			$auditMessage += " successfully (already exists)"
-		}
-		if($_.Exception.Response.StatusCode.value__ -eq 412)
-		{
-			$success = $True
-			$auditMessage += " successfully (already assigned)"
-		}
-		else
-		{
-			$auditMessage += " : General error $($_)"
-			Write-Error $_
-		}
+        Write-Information "Status Code: $($_.Exception.Response.StatusCode.value__)"
+        if($_.Exception.Response.StatusCode.value__ -eq 409)
+        {
+            $success = $True
+            $auditMessage += " successfully (already exists)"
+        }
+        if($_.Exception.Response.StatusCode.value__ -eq 412)
+        {
+            $success = $True
+            $auditMessage += " successfully (already assigned)"
+        }
+        else
+        {
+            $auditMessage += " : General error $($_)"
+            Write-Error $_
+        }
     }
 }
 
