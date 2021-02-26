@@ -99,7 +99,6 @@ if(-Not($dryRun -eq $True)) {
 $result = [PSCustomObject]@{
     Success = $success
     AuditDetails = $auditMessage
-    #Account = $account #(Not defined above)
 }
  
 Write-Output ($result | ConvertTo-Json -Depth 10)
