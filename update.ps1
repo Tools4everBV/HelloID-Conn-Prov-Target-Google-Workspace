@@ -51,17 +51,17 @@ function google-refresh-accessToken()
 # 1. <First Name>.<Last Name>@<Domain> (e.g john.williams@yourdomain.com)
 # 2. <First Name>.<Last Name><Iterator>@<Domain> (e.g john.williams2@yourdomain.com)
 function generate-PrimaryEmail {
-	[cmdletbinding()]
-	Param (
-		[string]$firstName,
-		[string]$lastName,
-		[string]$domain,
-		[int]$Iteration
-	) 
-	Process 
+    [cmdletbinding()]
+    Param (
+        [string]$firstName,
+        [string]$lastName,
+        [string]$domain,
+        [int]$Iteration
+    ) 
+    Process 
     {
-		<#
-		$suffix = ""
+        <#
+        $suffix = ""
         if($Iteration -gt 0) { $suffix = "$($Iteration+1)" }
         
         $temp_fn = $firstName
@@ -72,8 +72,8 @@ function generate-PrimaryEmail {
         $result = $temp_username + $suffix + $domain
         $result = $result.toLower()
         @($result)
-		#>
-		return $ad_mail
+        #>
+        return $ad_mail
     }
 }
 
@@ -113,6 +113,7 @@ try{
         Method = 'GET'
         Headers = $authorization
         Verbose = $False
+        ErrorAction = 'Stop'
     }
     #  API will error if target OU does not exist.
     try {
@@ -167,7 +168,7 @@ try{
     Write-Information ("Using Primary Email: {0}" -f $calc_primary_email)
 
     # Update Account
-    if(-Not $dryRun){
+    if(-Not($dryRun -eq $True)){
         # Get Previous Account
         $splat = @{
             Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
@@ -185,6 +186,7 @@ try{
             Verbose = $False
         }
         $updated_account = Invoke-RestMethod @splat
+        Write-Information ("Updated Account: {0}" -f ($updated_account | ConvertTo-Json -Depth 10))
     }
     $success = $True
     $auditMessage = "Updated account with PrimaryEmail $($updated_account.primaryEmail) in OrgUnit [$($account.orgUnitPath)]"
@@ -202,8 +204,8 @@ $result = [PSCustomObject]@{
     PreviousAccount = $previousAccount
     
     ExportData = [PSCustomObject]@{
-        primaryEmail = $updated_account.primaryEmail
-        orgUnitPath = $updated_account.orgUnitPath
+        PrimaryEmail = $updated_account.primaryEmail
+        OrgUnitPath = $updated_account.orgUnitPath
     }
 };
   
