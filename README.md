@@ -1,4 +1,4 @@
-# HelloID-Conn-Prov-Target-GSuite
+# HelloID-Conn-Prov-Target-Google-Workspace
 In this example we are going to connect to the Google Directory API (https://developers.google.com/admin-sdk/directory) using OAuth2.0 and the Powershell.
 
 <!-- TABLE OF CONTENTS -->

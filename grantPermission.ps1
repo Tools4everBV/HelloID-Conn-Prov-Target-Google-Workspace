@@ -99,18 +99,27 @@ if(-Not($dryRun -eq $True)) {
         }
     }catch
     {
-        Write-Information "Status Code: $($_.Exception.Response.StatusCode.value__)"
-        if($_.Exception.Response.StatusCode.value__ -eq 409)
-        {
-            $success = $True
-            $auditMessage += " successfully (already exists)"
-        }
-        if($_.Exception.Response.StatusCode.value__ -eq 412)
-        {
-            if( ($_ | ConvertFrom-Json).error.message -like "*User already has a license for the specified product and SKU*" )
+            Write-Verbose -Verbose "Status Code: $($_.Exception.Response.StatusCode.value__)"
+            Write-Verbose -Verbose ($_ | ConvertFrom-Json).error.message;
+            if($_.Exception.Response.StatusCode.value__ -eq 409)
             {
-                $success = $true;
-                $auditMessage = " successfully (already assigned)";
+                $success = $True;
+                $auditMessage = " successfully (already exists)";
+            }
+            if($_.Exception.Response.StatusCode.value__ -eq 412)
+            {
+                
+                if( ($_ | ConvertFrom-Json).error.message -like "*User already has a license for the specified product and SKU*" )
+                {
+                    $success = $true;
+                    $auditMessage = " successfully (already assigned)";
+                }
+                else
+                {
+                    $success = $false;
+                    $auditMessage = " : General error $($_)";
+                }
+
             }
             else
             {
@@ -132,5 +141,5 @@ $result = [PSCustomObject]@{
     AuditDetails = $auditMessage
     Account = $account
 }
- 
+
 Write-Output ($result | ConvertTo-Json -Depth 10)
