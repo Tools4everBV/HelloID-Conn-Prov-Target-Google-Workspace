@@ -66,6 +66,7 @@ try{
     {
             $success = $True;
             Write-Verbose -Verbose "$($a.AdditionalFields.mail) is unique in Google GSuite [Correlated]"
+            $NonUniqueFields = @();
     }
     else
     {
@@ -90,6 +91,7 @@ try{
         {
             $success = $True;
             Write-Verbose -Verbose "$($a.AdditionalFields.mail) is unique in Google GSuite [No Match]"
+            $NonUniqueFields = @();
         }
     }
 }
