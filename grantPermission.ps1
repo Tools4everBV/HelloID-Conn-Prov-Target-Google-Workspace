@@ -107,8 +107,16 @@ if(-Not($dryRun -eq $True)) {
         }
         if($_.Exception.Response.StatusCode.value__ -eq 412)
         {
-            $success = $True
-            $auditMessage += " successfully (already assigned)"
+            if( ($_ | ConvertFrom-Json).error.message -like "*User already has a license for the specified product and SKU*" )
+            {
+                $success = $true;
+                $auditMessage = " successfully (already assigned)";
+            }
+            else
+            {
+                $success = $false;
+                $auditMessage = " : General error $($_)";
+            }
         }
         else
         {
