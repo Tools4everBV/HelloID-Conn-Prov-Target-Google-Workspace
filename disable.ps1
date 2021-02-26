@@ -57,6 +57,7 @@ try{
         Method = 'GET'
         Headers = $authorization
         Verbose = $False
+        ErrorAction = 'Stop'
     }
     #  API will error if target OU does not exist.
     try {
@@ -69,7 +70,7 @@ try{
     }
 
     # Update Account
-    if(-Not $dryRun){
+    if(-Not($dryRun -eq $True)){
         # Get Previous Account
         $splat = @{
             Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
