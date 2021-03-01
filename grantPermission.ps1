@@ -1,45 +1,48 @@
-#2021-02-02 - Google Grant Permission
+#region Initialize default properties
 $config = ConvertFrom-Json $configuration
-
-#Initialize default properties
 $p = $person | ConvertFrom-Json
+$pp = $previousPerson | ConvertFrom-Json
+$pd = $personDifferences | ConvertFrom-Json
 $m = $manager | ConvertFrom-Json
 $aRef = $accountReference | ConvertFrom-Json
 $mRef = $managerAccountReference | ConvertFrom-Json
 $pRef = $permissionReference | ConvertFrom-json
 
 $success = $False
-$auditMessage = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName)"
+$auditLogs = New-Object Collections.Generic.List[PSCustomObject];
+#endregion Initialize default properties
 
-#Support Functions
-function google-refresh-accessToken()
-{
+#region Support Functions
+function Get-GoogleAccessToken() {
     ### exchange the refresh token for an access token
     $requestUri = "https://www.googleapis.com/oauth2/v4/token"
         
     $refreshTokenParams = @{
-            client_id=$config.clientId
-            client_secret=$config.clientSecret
-            redirect_uri=$config.redirectUri
-            refresh_token=$config.refreshToken
-            grant_type="refresh_token" # Fixed value
+            client_id=$config.clientId;
+            client_secret=$config.clientSecret;
+            redirect_uri=$config.redirectUri;
+            refresh_token=$config.refreshToken;
+            grant_type="refresh_token"; # Fixed value
     };
     $response = Invoke-RestMethod -Method Post -Uri $requestUri -Body $refreshTokenParams -Verbose:$false
     $accessToken = $response.access_token
             
     #Add the authorization header to the request
     $authorization = [ordered]@{
-        Authorization = "Bearer $accesstoken"
-        'Content-Type' = "application/json"
-        Accept = "application/json"
+        Authorization = "Bearer $accesstoken";
+        'Content-Type' = "application/json";
+        Accept = "application/json";
     }
     $authorization
 }
+#endregion Support Functions
 
+#region Execute
 if(-Not($dryRun -eq $True)) {
     try
     {
-        $authorization = google-refresh-accessToken
+        #Add the authorization header to the request
+        $authorization = Get-GoogleAccessToken
 
         #Get Member Email
         $splat = @{
@@ -70,7 +73,12 @@ if(-Not($dryRun -eq $True)) {
             }
             $response = Invoke-RestMethod @splat
             $success = $True
-            $auditMessage += " successfully"
+
+            $auditLogs.Add([PSCustomObject]@{
+                Action = "GrantPermission"
+                Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) successfully"
+                IsError = $false;
+            });
         }
         elseif($pRef.Type -eq "License")
         {
@@ -90,12 +98,22 @@ if(-Not($dryRun -eq $True)) {
             }
             $response = Invoke-RestMethod @splat
             $success = $True
-            $auditMessage += " successfully"
+
+            $auditLogs.Add([PSCustomObject]@{
+                Action = "GrantPermission"
+                Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) successfully"
+                IsError = $false;
+            });
         }
         else
         {
             $success = $False
-            $auditMessage += " not successfully (unknown permission type: {0})" -f $pRef.Type
+
+            $auditLogs.Add([PSCustomObject]@{
+                Action = "GrantPermission"
+                Message = "Membership for person $($p.DisplayName) to $($pRef.DisplayName) not successful (unknown permission type: $($pRef.Type))"
+                IsError = $true;
+            });
         }
     }catch
     {
@@ -104,34 +122,59 @@ if(-Not($dryRun -eq $True)) {
         if($_.Exception.Response.StatusCode.value__ -eq 409)
         {
             $success = $True;
-            $auditMessage = " successfully (already exists)";
+
+            $auditLogs.Add([PSCustomObject]@{
+                Action = "GrantPermission"
+                Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) (already exists)"
+                IsError = $false
+            });
         }
         if($_.Exception.Response.StatusCode.value__ -eq 412)
         {
             if( ($_ | ConvertFrom-Json).error.message -like "*User already has a license for the specified product and SKU*" )
             {
                 $success = $true;
-                $auditMessage = " successfully (already assigned)";
+
+                $auditLogs.Add([PSCustomObject]@{
+                    Action = "GrantPermission"
+                    Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) (already exists)"
+                    IsError = $false
+                });
             }
             else
             {
                 $success = $false;
-                $auditMessage = " : General error $($_)";
+                $auditLogs.Add([PSCustomObject]@{
+                    Action = "GrantPermission"
+                    Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) not successful - $($_)"
+                    IsError = $true
+                });
+                
+                Write-Error $_;
             }
         }
         else
         {
             $success = $false;
-            $auditMessage = " : General error $($_)";
+            $auditLogs.Add([PSCustomObject]@{
+                Action = "GrantPermission"
+                Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) not successful - $($_)"
+                IsError = $true
+            });
+            
+            Write-Error $_;
         }
     }
 }
+#endregion Execute
 
-#build up result
+#region Build up result
 $result = [PSCustomObject]@{
     Success = $success
     AuditDetails = $auditMessage
     Account = $account
+    AuditLogs = $auditLogs;
 }
 
 Write-Output ($result | ConvertTo-Json -Depth 10)
+#endregion Build up result

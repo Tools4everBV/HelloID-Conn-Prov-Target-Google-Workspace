@@ -36,7 +36,7 @@ By using this connector you will have the ability to create one of the following
 With the authorization code, we can get the refresh token. We only need the refresh token. 
 1. To get the authorization code please use the URL below and replace the {replaceclientid} with the values from the OAuth client we created before.
 ```
-https://accounts.google.com/o/oauth2/auth?client_id={replaceclientid}&scope=https://www.googleapis.com/auth/admin.directory.user https://www.googleapis.com/auth/admin.directory.group https://www.googleapis.com/auth/apps.licensing&response_type=code&redirect_uri=http://localhost/oauth2callback&access_type=offline&approval_prompt=force
+https://accounts.google.com/o/oauth2/auth?client_id={replaceclientid}&scope=https://www.googleapis.com/auth/admin.directory.user https://www.googleapis.com/auth/admin.directory.group https://www.googleapis.com/auth/apps.licensing https://www.googleapis.com/auth/admin.directory.orgunit&response_type=code&redirect_uri=http://localhost/oauth2callback&access_type=offline&approval_prompt=force
 ```
 2. Open the URL in a webbrowser of your choosing.
 3. The browser will be redirected to the redirect URI. We will need to copy the code value out of the URL in the address bar, so we can obtain a refresh token in the next section.
@@ -48,6 +48,6 @@ The code would be 4/QhUXhB********************z9jGKkhvac2&
 
 ## Getting the refreshtoken
 1. To exchange the Authorization code for the refresh token, we will use Powershell to make a call to https://www.googleapis.com/oauth2/v4/token. 
-2. Fill in Authorization code, Client Id, Client Secret and Redirect Uri from the Google Developer Console and run the refreshtoken.ps1 in the repo. It will store the refresh token in a text file so you can use it later on.
+2. Fill in Authorization code, Client Id, Client Secret and Redirect Uri from the Google Developer Console and run the [Authorization.GetRefreshToken.ps1](Scripts/Authorization.GetRefreshToken.ps1) in the repo. It will store the refresh token in a text file so you can use it later on.
 
 Note: The claimed authorization code can be exchanged for a refreshtoken only once, otherwise you have to request a new athorization code as described above.
