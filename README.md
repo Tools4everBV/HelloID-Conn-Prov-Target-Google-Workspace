@@ -48,6 +48,6 @@ The code would be 4/QhUXhB********************z9jGKkhvac2&
 
 ## Getting the refreshtoken
 1. To exchange the Authorization code for the refresh token, we will use Powershell to make a call to https://www.googleapis.com/oauth2/v4/token. 
-2. Fill in Authorization code, Client Id, Client Secret and Redirect Uri from the Google Developer Console and run the refreshtoken.ps1 in the repo. It will store the refresh token in a text file so you can use it later on.
+2. Fill in Authorization code, Client Id, Client Secret and Redirect Uri from the Google Developer Console and run the [Authorization.GetRefreshToken.ps1](Scripts/Authorization.GetRefreshToken.ps1) in the repo. It will store the refresh token in a text file so you can use it later on.
 
 Note: The claimed authorization code can be exchanged for a refreshtoken only once, otherwise you have to request a new athorization code as described above.
