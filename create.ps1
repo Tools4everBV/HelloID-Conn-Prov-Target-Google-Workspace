@@ -53,8 +53,8 @@ function Get-GoogleAccessToken() {
             
     #Add the authorization header to the request
     $authorization = [ordered]@{
-        Authorization = "Bearer $accesstoken";
-        'Content-Type' = "application/json";
+        Authorization = "Bearer $($accesstoken)";
+        'Content-Type' = "application/json; charset=utf-8";
         Accept = "application/json";
     }
     $authorization
@@ -121,7 +121,7 @@ function Get-CorrelationResult {
     $passwordHash = ([System.BitConverter]::ToString((New-Object -TypeName System.Security.Cryptography.SHA1CryptoServiceProvider).ComputeHash((New-Object -TypeName System.Text.UTF8Encoding).GetBytes($defaultPassword)))).Replace("-","")
 
     $defaultDomain = $config.defaultDomain
-    $defaultOrgUnitPath = "/Inactive"
+    $defaultOrgUnitPath = "/Disabled"
     $defaultSuspended = $true
 
     #Correlation
@@ -196,7 +196,7 @@ try
             });
 
             $splat = [ordered]@{
-                body = ($account | ConvertTo-Json -Depth 10)
+                body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json -Depth 10))
                 Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
                 Method = 'PUT'
                 Headers = $authorization 
@@ -265,7 +265,7 @@ try
         
         if(-Not($dryRun -eq $True)){
             $splat = [ordered]@{
-                Body = $account | ConvertTo-Json -Depth 10
+                Body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json -Depth 10))
                 Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
                 Method = 'POST'
                 Headers = $authorization 

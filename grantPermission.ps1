@@ -30,7 +30,7 @@ function Get-GoogleAccessToken() {
     #Add the authorization header to the request
     $authorization = [ordered]@{
         Authorization = "Bearer $accesstoken";
-        'Content-Type' = "application/json";
+        'Content-Type' = "application/json; charset=utf-8";
         Accept = "application/json";
     }
     $authorization
@@ -52,30 +52,29 @@ if(-Not($dryRun -eq $True)) {
             Verbose = $False
         }
         $userResponse = Invoke-RestMethod @splat
-        Write-Information "$($userResponse[0].primaryEmail)"
+        Write-Information "Found user: $($userResponse[0].primaryEmail)"
 
         if($pRef.Type -eq "Group")
         {
             Write-Information "Applying Group Permission"
             
-            $account = @{
-                        email = $userResponse[0].primaryEmail
-                        role = "MEMBER"
-            }
-            $splat = @{
-                Uri = "https://www.googleapis.com/admin/directory/v1/groups/$($pRef.Id)/members" 
-                Body = @{
+            $account = [PSCustomObject]@{
                     email = $userResponse[0].primaryEmail
                     role = "MEMBER"
                 }
+
+            $splat = @{
+                Uri = "https://www.googleapis.com/admin/directory/v1/groups/$($pRef.Id)/members" 
+                Body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json))
                 Method = 'POST'
                 Headers = $authorization
             }
+
             $response = Invoke-RestMethod @splat
             $success = $True
-
+            
             $auditLogs.Add([PSCustomObject]@{
-                Action = "GrantPermission"
+                Action = "GrantMembership"
                 Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) successfully"
                 IsError = $false;
             });
@@ -83,16 +82,14 @@ if(-Not($dryRun -eq $True)) {
         elseif($pRef.Type -eq "License")
         {
             Write-Information "Applying License Permission"
-
-            $account = @{   
-                userId = $userResponse[0].primaryEmail
-            }
-            #Write-Information "https://licensing.googleapis.com/apps/licensing/v1/product/$($pRef.ProductId)/sku/$($pRef.SkuId)/user"
-            $splat = @{
-                Uri = "https://licensing.googleapis.com/apps/licensing/v1/product/$($pRef.ProductId)/sku/$($pRef.SkuId)/user"
-                Body = @{   
+            
+            $account = [PSCustomObject]@{   
                     userId = $userResponse[0].primaryEmail
                 }
+
+            $splat = @{
+                Uri = "https://licensing.googleapis.com/apps/licensing/v1/product/$($pRef.ProductId)/sku/$($pRef.SkuId)/user"
+                Body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json))
                 Method = 'POST' 
                 Headers = $authorization
             }
@@ -100,7 +97,7 @@ if(-Not($dryRun -eq $True)) {
             $success = $True
 
             $auditLogs.Add([PSCustomObject]@{
-                Action = "GrantPermission"
+                Action = "GrantMembership"
                 Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) successfully"
                 IsError = $false;
             });
@@ -108,9 +105,9 @@ if(-Not($dryRun -eq $True)) {
         else
         {
             $success = $False
-
+            Write-Error "(unknown permission type: $($pRef.Type))";
             $auditLogs.Add([PSCustomObject]@{
-                Action = "GrantPermission"
+                Action = "GrantMembership"
                 Message = "Membership for person $($p.DisplayName) to $($pRef.DisplayName) not successful (unknown permission type: $($pRef.Type))"
                 IsError = $true;
             });
@@ -124,19 +121,19 @@ if(-Not($dryRun -eq $True)) {
             $success = $True;
 
             $auditLogs.Add([PSCustomObject]@{
-                Action = "GrantPermission"
+                Action = "GrantMembership"
                 Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) (already exists)"
                 IsError = $false
             });
         }
-        if($_.Exception.Response.StatusCode.value__ -eq 412)
+        elseif($_.Exception.Response.StatusCode.value__ -eq 412)
         {
             if( ($_ | ConvertFrom-Json).error.message -like "*User already has a license for the specified product and SKU*" )
             {
                 $success = $true;
 
                 $auditLogs.Add([PSCustomObject]@{
-                    Action = "GrantPermission"
+                    Action = "GrantMembership"
                     Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) (already exists)"
                     IsError = $false
                 });
@@ -145,7 +142,7 @@ if(-Not($dryRun -eq $True)) {
             {
                 $success = $false;
                 $auditLogs.Add([PSCustomObject]@{
-                    Action = "GrantPermission"
+                    Action = "GrantMembership"
                     Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) not successful - $($_)"
                     IsError = $true
                 });
@@ -157,7 +154,7 @@ if(-Not($dryRun -eq $True)) {
         {
             $success = $false;
             $auditLogs.Add([PSCustomObject]@{
-                Action = "GrantPermission"
+                Action = "GrantMembership"
                 Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) not successful - $($_)"
                 IsError = $true
             });
@@ -169,9 +166,9 @@ if(-Not($dryRun -eq $True)) {
 #endregion Execute
 
 #region Build up result
+Write-Information ($auditLogs | ConvertTo-Json)
 $result = [PSCustomObject]@{
     Success = $success
-    AuditDetails = $auditMessage
     Account = $account
     AuditLogs = $auditLogs;
 }

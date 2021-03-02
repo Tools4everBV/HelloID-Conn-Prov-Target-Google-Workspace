@@ -28,7 +28,7 @@ function Get-GoogleAccessToken() {
     #Add the authorization header to the request
     $authorization = [ordered]@{
         Authorization = "Bearer $accesstoken";
-        'Content-Type' = "application/json";
+        'Content-Type' = "application/json; charset=utf-8";
         Accept = "application/json";
     }
     $authorization
@@ -65,7 +65,7 @@ function New-PrimaryEmail {
 
 #region Change mapping here
     $defaultDomain = $config.defaultDomain
-    $defaultOrgUnitPath = "/Users"
+    $defaultOrgUnitPath = "/Employees"
     $enableUpdatePrimaryEmail = $false;
 
     #Target OrgUnitPath
@@ -187,7 +187,7 @@ try{
             Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
             Method = 'PUT'
             Headers = $authorization 
-            Body = ($account | ConvertTo-Json -Depth 10)
+            Body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json -Depth 10))
             Verbose = $False
         }
         $updatedAccount = Invoke-RestMethod @splat

@@ -10,7 +10,6 @@ $success = $False
 $auditLogs = New-Object Collections.Generic.List[PSCustomObject];
 #endregion Initialize default properties
 
-
 #region Support Functions
 function Get-GoogleAccessToken() {
     ### exchange the refresh token for an access token
@@ -29,7 +28,7 @@ function Get-GoogleAccessToken() {
     #Add the authorization header to the request
     $authorization = [ordered]@{
         Authorization = "Bearer $accesstoken";
-        'Content-Type' = "application/json";
+        'Content-Type' = "application/json; charset=utf-8";
         Accept = "application/json";
     }
     $authorization
@@ -37,7 +36,7 @@ function Get-GoogleAccessToken() {
 #endregion Support Functions
 
 #region Change mapping here
-    $defaultOrgUnitPath = "/Users"
+    $defaultOrgUnitPath = "/Employees"
 
     #Target OrgUnitPath
     $calcOrgUnitPath = ("{0}/{1}" -f
@@ -89,7 +88,7 @@ try{
         $previousAccount = Invoke-RestMethod @splat
 
         $splat = @{
-            body = ($account | ConvertTo-Json -Depth 10)
+            body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json -Depth 10))
             Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
             Method = 'PUT'
             Headers = $authorization

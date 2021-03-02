@@ -66,7 +66,7 @@ if(-Not($dryRun -eq $True)) {
             $success = $True
 
             $auditLogs.Add([PSCustomObject]@{
-                Action = "RevokePermission"
+                Action = "RevokeMembership"
                 Message = "Membership for person $($p.DisplayName) removed from $($pRef.Displayname) successfully"
                 IsError = $false;
             });
@@ -83,7 +83,7 @@ if(-Not($dryRun -eq $True)) {
             $success = $True
             
             $auditLogs.Add([PSCustomObject]@{
-                Action = "RevokePermission"
+                Action = "RevokeMembership"
                 Message = "Membership for person $($p.DisplayName) removed from $($pRef.Displayname) successfully"
                 IsError = $false;
             });
@@ -93,7 +93,7 @@ if(-Not($dryRun -eq $True)) {
             $success = $False
             
             $auditLogs.Add([PSCustomObject]@{
-                Action = "RevokePermission"
+                Action = "RevokeMembership"
                 Message = "Membership for person $($p.DisplayName) to $($pRef.DisplayName) not successful (unknown permission type: $($pRef.Type))"
                 IsError = $true;
             });
@@ -105,7 +105,7 @@ if(-Not($dryRun -eq $True)) {
             $success = $True
             
             $auditLogs.Add([PSCustomObject]@{
-                Action = "RevokePermission"
+                Action = "RevokeMembership"
                 Message = "Membership for person $($p.DisplayName) removed from $($pRef.Displayname) successfully (Auto License un-assignment is not allowed.)"
                 IsError = $false;
             });
@@ -113,7 +113,7 @@ if(-Not($dryRun -eq $True)) {
         else
         {
             $auditLogs.Add([PSCustomObject]@{
-                Action = "RevokePermission"
+                Action = "RevokeMembership"
                 Message = "Membership for person $($p.DisplayName) removed from $($pRef.DisplayName) not successful - $($_)"
                 IsError = $true
             });

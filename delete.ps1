@@ -28,7 +28,7 @@ function Get-GoogleAccessToken() {
     #Add the authorization header to the request
     $authorization = [ordered]@{
         Authorization = "Bearer $accesstoken";
-        'Content-Type' = "application/json";
+        'Content-Type' = "application/json; charset=utf-8";
         Accept = "application/json";
     }
     $authorization
