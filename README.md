@@ -71,7 +71,7 @@ Note: The claimed authorization code can be exchanged for a refreshtoken only on
 
 2. Fill in the required fields on the 'Configuration' tab. See also, [Setting up the Google API access](#setting-up-the-google-api-access)
 
-![image](./assets/config.jpg)
+![image](Assets/config.jpg)
 * Client ID
 * Client Secret
 * Redirect URI
