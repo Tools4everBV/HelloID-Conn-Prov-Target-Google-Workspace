@@ -1,4 +1,7 @@
 # HelloID-Conn-Prov-Target-Google-Workspace
+<p align="center">
+  <img src="Assets/GoogleLogo.jpg">
+</p>
 In this example we are going to connect to the Google Directory API (https://developers.google.com/admin-sdk/directory) using OAuth2.0 and the Powershell.
 
 <!-- TABLE OF CONTENTS -->
@@ -7,6 +10,7 @@ In this example we are going to connect to the Google Directory API (https://dev
 * [Setting up the Google API access](#setting-up-the-google-api-access)
 * [Getting the authorization code](#getting-the-authorization-code)
 * [Getting the refreshtoken](#getting-the-refreshtoken)
+* [Configuration](#configuration)
 
 <!-- GETTING STARTED -->
 ## Getting Started
@@ -50,4 +54,36 @@ The code would be 4/QhUXhB********************z9jGKkhvac2&
 1. To exchange the Authorization code for the refresh token, we will use Powershell to make a call to https://www.googleapis.com/oauth2/v4/token. 
 2. Fill in Authorization code, Client Id, Client Secret and Redirect Uri from the Google Developer Console and run the [Authorization.GetRefreshToken.ps1](Scripts/Authorization.GetRefreshToken.ps1) in the repo. It will store the refresh token in a text file so you can use it later on.
 
-Note: The claimed authorization code can be exchanged for a refreshtoken only once, otherwise you have to request a new athorization code as described above.
+Note: The claimed authorization code can be exchanged for a refreshtoken only once, otherwise you have to request a new authorization code as described above.
+
+## Setup the PowerShell connector
+1. Add a new 'Target System' to HelloID and make sure to import all the necessary files.
+
+    - [ ] configuration.json
+    - [ ] create.ps1
+    - [ ] update.ps1
+    - [ ] enable.ps1
+    - [ ] disable.ps1
+    - [ ] delete.ps1
+    - [ ] entitlements.ps1
+    - [ ] grantPermission.ps1
+    - [ ] revokePermission.ps1
+
+2. Fill in the required fields on the 'Configuration' tab. See also, [Setting up the Google API access](#setting-up-the-google-api-access)
+
+![image](./assets/config.jpg)
+* Client ID
+* Client Secret
+* Redirect URI
+* Refresh Token
+* Default Domain
+* Enable Correlation
+  * If enabled, on create HelloID search for a matching existing user, else always create.
+* Person Correlation Field
+  * Variable to reference for Person Field
+* Account Correlation Field
+  * Name of the Field to Search
+
+
+
+_For more information about our HelloID PowerShell connectors, please refer to our general [Documentation](https://docs.helloid.com/hc/en-us/articles/360012557600-Configure-a-custom-PowerShell-source-system) page_
