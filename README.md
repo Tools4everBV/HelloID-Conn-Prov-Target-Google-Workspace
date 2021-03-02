@@ -10,7 +10,7 @@ In this example we are going to connect to the Google Directory API (https://dev
 * [Setting up the Google API access](#setting-up-the-google-api-access)
 * [Getting the authorization code](#getting-the-authorization-code)
 * [Getting the refreshtoken](#getting-the-refreshtoken)
-* [Configuration](#configuration)
+* [Setup the PowerShell connector](#setup-the-powerShell-connector)
 
 <!-- GETTING STARTED -->
 ## Getting Started
