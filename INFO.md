@@ -30,4 +30,4 @@ For a more technical overview of connecting Google Workspace with HelloID, pleas
 
 For additional information on how to connect Google Workspace to HelloID as a provisioning target, please refer to the following GitHub links:
 
-[https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-Google-Workspace](https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-Google-Workspace)
+[https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-Google-Workspace](https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-Google-Workspace) 
