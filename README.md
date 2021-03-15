@@ -8,8 +8,7 @@ In this example we are going to connect to the Google Directory API (https://dev
 ## Table of Contents
 * [Getting Started](#getting-started)
 * [Setting up the Google API access](#setting-up-the-google-api-access)
-* [Getting the authorization code](#getting-the-authorization-code)
-* [Getting the refreshtoken](#getting-the-refreshtoken)
+* [Authorization](#authorization)
 * [Setup the PowerShell connector](#setup-the-powerShell-connector)
 
 <!-- GETTING STARTED -->
