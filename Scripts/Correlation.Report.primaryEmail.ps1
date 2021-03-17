@@ -9,7 +9,7 @@
 ## 3. Update $username for the generated username match on
 
 #Settings
-$config = @{ 
+$config = @{
                 clientId = "{GOOGLE CLIENT ID}";
                 clientSecret = "{GOOGLE CLIENT SECRET}";
                 redirectUri = "http://localhost/oauth2callback";
@@ -24,7 +24,7 @@ $config = @{
 #GSuite
     #Authorization
         $requestUri = "https://www.googleapis.com/oauth2/v4/token"
-         
+
         $refreshTokenParams = @{
                 client_id=$config.clientId;
                 client_secret=$config.clientSecret;
@@ -34,7 +34,7 @@ $config = @{
         };
         $response = Invoke-RestMethod -Method Post -Uri $requestUri -Body $refreshTokenParams -Verbose:$false
         $accessToken = $response.access_token
- 
+
         #Add the authorization header to the request
         $authorization = @{
                 Authorization = "Bearer $accesstoken";
@@ -52,13 +52,13 @@ $config = @{
 
         Write-Verbose -Verbose "Retrieving Users"
         while($true)
-        { 
+        {
             $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users" -Body $parameters -Method GET -Headers $authorization
             $parameters['pageToken'] = $response.nextPageToken;
-    
+
             [void]$gsuiteusers.AddRange($response.users);
             Write-Verbose -Verbose "$($gsuiteUsers.count) user(s)"
-            if($parameters['pageToken'] -eq $null) { break; }
+            if($null -eq $parameters['pageToken']) { break; }
         }
         Write-Verbose -Verbose "Retrieve Users";
 
@@ -87,7 +87,7 @@ $config = @{
             }
         }
 
-        if($result -eq $null) { [void]$results.create.Add($person) }
+        if($null -eq $result) { [void]$results.create.Add($person) }
         $i++;
     }
 
@@ -104,4 +104,4 @@ $config = @{
     Write-Verbose -Verbose "$($duplicates.count) Duplicate Correlation(s)"
 
     $results.create | Out-GridView
-    if($duplicates.count -gt 0) { $duplicates | Out-GridView } 
+    if($duplicates.count -gt 0) { $duplicates | Out-GridView }

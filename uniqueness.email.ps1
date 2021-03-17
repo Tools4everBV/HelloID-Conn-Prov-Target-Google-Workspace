@@ -10,7 +10,7 @@ $a = $account | ConvertFrom-Json;
 #endregion Initialize default properties
 
 #region Change mapping here
-$config = @{ 
+$config = @{
     clientId = "";
     clientSecret = "";
     redirectUri = "http://localhost/oauth2callback";
@@ -29,7 +29,7 @@ if($dryRun -eq $True) {
 
 try{
     $requestUri = "https://www.googleapis.com/oauth2/v4/token"
-        
+
     $refreshTokenParams = @{
             client_id=$config.clientId;
             client_secret=$config.clientSecret;
@@ -39,7 +39,7 @@ try{
     };
     $response = Invoke-RestMethod -Method Post -Uri $requestUri -Body $refreshTokenParams -Verbose:$false
     $accessToken = $response.access_token
-            
+
     #Add the authorization header to the request
     $authorization = @{
         Authorization = "Bearer $accesstoken";
@@ -54,7 +54,7 @@ try{
         projection="FULL";
     }
     $correlationResponse = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users" -Method GET -Body $parameters -Headers $authorization -Verbose:$false;
-    
+
     if($correlationResponse.users.count -gt 0)
     {
         if($correlationResponse.users.count -gt 1)
@@ -65,9 +65,9 @@ try{
         {
             Write-Verbose -Verbose "Correlated Account found"
         }
-        
-        $existingEmails = $correlationResponse.users.emails | Select -ExpandProperty Address;
-        
+
+        $existingEmails = $correlationResponse.users.emails | Select-Object -ExpandProperty Address;
+
     }
 
     if($existingEmails -contains $config.uniqueFieldValue)

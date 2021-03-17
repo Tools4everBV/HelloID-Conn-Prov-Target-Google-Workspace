@@ -1,5 +1,4 @@
-#Get Google Entitlements (Groups & Licenses)
-
+# Get Google Entitlements (Groups & Licenses)
 #region Initialize default properties
 $config = ConvertFrom-Json $configuration
 $gsuiteGroups = [System.Collections.Generic.List[object]]::new()
@@ -9,7 +8,7 @@ $gsuiteGroups = [System.Collections.Generic.List[object]]::new()
 function Get-GoogleAccessToken() {
     ### exchange the refresh token for an access token
     $requestUri = "https://www.googleapis.com/oauth2/v4/token"
-        
+
     $refreshTokenParams = @{
             client_id=$config.clientId;
             client_secret=$config.clientSecret;
@@ -19,7 +18,7 @@ function Get-GoogleAccessToken() {
     };
     $response = Invoke-RestMethod -Method Post -Uri $requestUri -Body $refreshTokenParams -Verbose:$false
     $accessToken = $response.access_token
-            
+
     #Add the authorization header to the request
     $authorization = [ordered]@{
         Authorization = "Bearer $accesstoken";
@@ -43,15 +42,15 @@ try {
 
 	do {
 		$splat = @{
-			Uri = "https://www.googleapis.com/admin/directory/v1/groups" 
+			Uri = "https://www.googleapis.com/admin/directory/v1/groups"
 			Body = $parameters
 			Method = 'GET'
 			Headers = $authorization
 		}
-		$response = Invoke-RestMethod @splat 
+		$response = Invoke-RestMethod @splat
 		$parameters['pageToken'] = $response.nextPageToken;
 		$gsuiteGroups.AddRange($response.groups);
-	} while ($parameters['pageToken'] -ne $null)
+	} while ($null -ne $parameters['pageToken'])
 }catch{
     Write-Error $_
 }

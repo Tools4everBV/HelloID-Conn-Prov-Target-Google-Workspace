@@ -8,7 +8,7 @@
 ## 1. Update Settings
 
 #Settings
-$config = @{ 
+$config = @{
                 clientId = "{GOOGLE CLIENT ID}";
                 clientSecret = "{GOOGLE CLIENT SECRET}";
                 redirectUri = "http://localhost/oauth2callback";
@@ -22,7 +22,7 @@ $config = @{
 
 #Authorization
         $requestUri = "https://www.googleapis.com/oauth2/v4/token"
-         
+
         $refreshTokenParams = @{
                 client_id=$config.clientId;
                 client_secret=$config.clientSecret;
@@ -32,7 +32,7 @@ $config = @{
         };
         $response = Invoke-RestMethod -Method Post -Uri $requestUri -Body $refreshTokenParams -Verbose:$false
         $accessToken = $response.access_token
- 
+
         #Add the authorization header to the request
         $authorization = @{
                 Authorization = "Bearer $accesstoken";
@@ -65,8 +65,8 @@ $config = @{
                                 fields = "id,primaryEmail,externalIds";
                            }
             $existingUser = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$($item.userKey)" -Body $parameters -Method GET -Headers $authorization
-            
-            if($existingUser.externalIds -eq $null)
+
+            if($null -eq $existingUser.externalIds)
             {
                 #No Existing externalIds, Only New ID
                 $body =  @{ externalIds =  @(
@@ -81,16 +81,15 @@ $config = @{
             {
                 #Setup New ID
                 $body = @{ externalIds = [System.Collections.ArrayList]@(@{ value = "$($item.id)"; type = "organization"; }) }
-                
+
                 ##Add Existing
                 foreach($extId in $existingUser.externalIds)
                 {
                     [void]$body.externalIds.Add($extId);
-                } 
+                }
             }
-            
+
         }
-        
         #Update User
         $updatedUser = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$($item.userKey)" -Body ($body | ConvertTo-Json) -Method PUT -Headers $authorization
         $i++;

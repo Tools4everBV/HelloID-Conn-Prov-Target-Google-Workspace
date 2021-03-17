@@ -14,7 +14,7 @@ $auditLogs = New-Object Collections.Generic.List[PSCustomObject];
 function Get-GoogleAccessToken() {
     ### exchange the refresh token for an access token
     $requestUri = "https://www.googleapis.com/oauth2/v4/token"
-        
+
     $refreshTokenParams = @{
             client_id=$config.clientId;
             client_secret=$config.clientSecret;
@@ -24,7 +24,7 @@ function Get-GoogleAccessToken() {
     };
     $response = Invoke-RestMethod -Method Post -Uri $requestUri -Body $refreshTokenParams -Verbose:$false
     $accessToken = $response.access_token
-            
+
     #Add the authorization header to the request
     $authorization = [ordered]@{
         Authorization = "Bearer $accesstoken";
@@ -40,12 +40,12 @@ try{
     if(-Not($dryRun -eq $True)){
         #Add the authorization header to the request
         $authorization = Get-GoogleAccessToken
-        
+
         # Get Previous Account
         $splat = @{
-            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
+            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)"
             Method = 'GET'
-            Headers = $authorization 
+            Headers = $authorization
             Verbose = $False
         }
         $previousAccount = Invoke-RestMethod @splat
@@ -58,7 +58,6 @@ try{
             Message = "Deleted account with PrimaryEmail $($previousAccount.primaryEmail)"
             IsError = $false;
         });
-        
     }
     $success = $True;
 
@@ -68,7 +67,7 @@ try{
         Message = "Error deleting account with PrimaryEmail $($previousAccount.primaryEmail) - Error: $($_)"
         IsError = $true;
     });
-    Write-Error -Verbose $_; 
+    Write-Error -Verbose $_;
 }
 #endregion Execute
 
@@ -80,6 +79,6 @@ $result = [PSCustomObject]@{
 	Account = [PSCustomObject]@{}
 	PreviousAccount = $previousAccount
 }
-  
+
 Write-Output ($result | ConvertTo-Json -Depth 10)
 #endregion Build up result

@@ -17,7 +17,7 @@ $dynamicPermissions = New-Object Collections.Generic.List[PSCustomObject];
 function Get-GoogleAccessToken() {
     ### exchange the refresh token for an access token
     $requestUri = "https://www.googleapis.com/oauth2/v4/token"
-        
+
     $refreshTokenParams = @{
             client_id=$config.clientId;
             client_secret=$config.clientSecret;
@@ -27,7 +27,7 @@ function Get-GoogleAccessToken() {
     };
     $response = Invoke-RestMethod -Method Post -Uri $requestUri -Body $refreshTokenParams -Verbose:$false
     $accessToken = $response.access_token
-            
+
     #Add the authorization header to the request
     $authorization = [ordered]@{
         Authorization = "Bearer $accesstoken";
@@ -92,7 +92,7 @@ function Get-GoogleAccessToken() {
             }
         }
     }
-            
+
     # Compare desired with current permissions and grant permissions
     foreach($permission in $desiredPermissions.GetEnumerator()) {
         $dynamicPermissions.Add([PSCustomObject]@{
@@ -106,7 +106,7 @@ function Get-GoogleAccessToken() {
                         email = $userResponse[0].primaryEmail;
                         role = "MEMBER";
             }
-            
+
             try {
                 if(-Not($dryRun -eq $True)){
                     $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/groups/$groupEmail/members" -Body ($account | ConvertTo-Json) -Method POST -Headers $authorization
@@ -124,12 +124,12 @@ function Get-GoogleAccessToken() {
                     IsError = $True;
                 });
             }
-        }    
+        }
     }
 
     # Compare current with desired permissions and revoke permissions
     $newCurrentPermissions = @{};
-    foreach($permission in $currentPermissions.GetEnumerator()) {    
+    foreach($permission in $currentPermissions.GetEnumerator()) {
         if(-Not $desiredPermissions.ContainsKey($permission.Name))
         {
             try {

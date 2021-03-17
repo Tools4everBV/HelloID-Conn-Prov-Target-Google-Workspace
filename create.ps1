@@ -12,7 +12,7 @@ $auditLogs = New-Object Collections.Generic.List[PSCustomObject];
 #region Support Functions
 function New-RandomPassword($PasswordLength) {
     if($PasswordLength -lt 8) { $PasswordLength = 8}
-        
+
     # Used to store an array of characters that can be used for the password
     $CharPool = New-Object System.Collections.ArrayList
 
@@ -24,23 +24,23 @@ function New-RandomPassword($PasswordLength) {
 
     # Add digits 0-9 to the arraylist
     $CharPool.AddRange(@("0","1","2","3","4","5","6","7","8","9"))
-        
+
     # Add a range of special characters to the arraylist
     $CharPool.AddRange(@("!","""","#","$","%","&","'","(",")","*","+","-",".","/",":",";","<","=",">","?","@","[","\","]","^","_","{","|","}","~","!"))
-        
+
     $password=""
     $rand=New-Object System.Random
-        
+
     # Generate password by appending a random value from the array list until desired length of password is reached
-    1..$PasswordLength | foreach { $password = $password + $CharPool[$rand.Next(0,$CharPool.Count)] }  
-        
+    1..$PasswordLength | ForEach-Object { $password = $password + $CharPool[$rand.Next(0,$CharPool.Count)] }
+
     $password
 }
 
 function Get-GoogleAccessToken() {
     ### exchange the refresh token for an access token
     $requestUri = "https://www.googleapis.com/oauth2/v4/token"
-        
+
     $refreshTokenParams = @{
             client_id=$config.clientId;
             client_secret=$config.clientSecret;
@@ -48,9 +48,10 @@ function Get-GoogleAccessToken() {
             refresh_token=$config.refreshToken;
             grant_type="refresh_token"; # Fixed value
     };
+
     $response = Invoke-RestMethod -Method Post -Uri $requestUri -Body $refreshTokenParams -Verbose:$false
     $accessToken = $response.access_token
-            
+
     #Add the authorization header to the request
     $authorization = [ordered]@{
         Authorization = "Bearer $($accesstoken)";
@@ -69,21 +70,20 @@ function New-PrimaryEmail {
         [object]$person,
         [string]$domain,
         [int]$Iteration
-    ) 
-    Process 
-    {
+    )
+    Process {
         $suffix = "";
         if($Iteration -gt 0) { $suffix = "$($Iteration+1)" };
-        
+
         #Check Nickname
         if([string]::IsNullOrEmpty($p.Name.Nickname)) { $tempFirstName = $p.Name.GivenName } else { $tempFirstName = $p.Name.Nickname }
-        
+
         $tempLastName = $person.Name.FamilyName;
         $tempUsername = ("{0}.{1}" -f $tempFirstName,$tempLastName);
         $tempUsername = $tempUsername.substring(0,[Math]::Min(20-$suffix.Length,$tempUsername.Length));
         $result = ("{0}{1}@{2}" -f $tempUsername, $suffix, $domain);
         $result = $result.toLower();
-        
+
         return $result;
     }
 }
@@ -94,9 +94,8 @@ function Get-CorrelationResult {
         [object]$authorization,
         [string]$field,
         [string]$value
-    ) 
-    Process 
-    {
+    )
+    Process {
         $splat = @{
             Body = @{
                 customer = "my_customer"
@@ -154,8 +153,6 @@ function Get-CorrelationResult {
                             department = "$($p.primaryContract.Department.name)"
                         })
     }
-    
-    #Write-Information ("Initial Account: {0}" -f ($account | ConvertTo-Json -Depth 20))
 #endregion Change mapping here
 
 #region Execute
@@ -177,9 +174,9 @@ try
     if($correlationResponse.users.count -gt 0)
     {
         Write-Information ("Existing Account found: (Found count: {0}) {1}" -f $correlationResponse.users.count,($correlationResponse.users | ConvertTo-Json -Depth 20))
-        
+
         $aRef = $correlationResponse.users[0].id
-        
+
         #Use existing primaryEmail and OrgUnitPath
         $calcPrimaryEmail = $correlationResponse.users[0].primaryEmail
         $account.primaryEmail = $calcPrimaryEmail
@@ -197,13 +194,13 @@ try
 
             $splat = [ordered]@{
                 body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json -Depth 10))
-                Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
+                Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)"
                 Method = 'PUT'
-                Headers = $authorization 
+                Headers = $authorization
                 Verbose = $False
             }
             $newAccount = Invoke-RestMethod @splat
-            
+
             $auditLogs.Add([PSCustomObject]@{
                 Action = "UpdateAccount"
                 Message = "Updated Existing Account"
@@ -225,7 +222,7 @@ try
                     query = "Email=$($account.primaryEmail)"
                     projection="FULL"
                 }
-                Uri = "https://www.googleapis.com/admin/directory/v1/users" 
+                Uri = "https://www.googleapis.com/admin/directory/v1/users"
                 Method = 'GET'
                 Headers = $authorization
                 Verbose =$False
@@ -235,21 +232,21 @@ try
             if($calcPrimaryEmailResponse.users.count -gt 0)
             {
                 #Iterate
-                Write-Verbose -Verbose "$($account.primaryEmail) already in use, iterating)"
+                Write-Information "$($account.primaryEmail) already in use, iterating)"
                 $Iterator++
                 $calcPrimaryEmail = New-PrimaryEmail -person $p -domain $defaultDomain -Iteration $Iterator
                 $account.primaryEmail = $calcPrimaryEmail
-                Write-Verbose -Verbose "Iteration $($Iterator) - $($account.primaryEmail)"
+                Write-Information "Iteration $($Iterator) - $($account.primaryEmail)"
             }
         } while ($calcPrimaryEmailResponse.users.count -gt 0 -AND $Iterator -lt $maxUsernameIterations)
-        
+
         #Check for exceeding max namegen iterations
         if($Iterator -ge $maxUsernameIterations)
         {
             throw "Max NameGen Iterations tested.  No unique Primary Email values found.  Iterated values may not be allowed in NameGen algorithm."
         }
-        
-        #Proceed with account creation, set additional defaults 
+
+        #Proceed with account creation, set additional defaults
         if($usePasswordHash -eq $true)
         {
             $account.password = $passwordHash
@@ -262,20 +259,20 @@ try
 
         $account.orgUnitPath = $defaultOrgUnitPath
         $account.suspended = $defaultSuspended
-        
+
         if(-Not($dryRun -eq $True)){
             $splat = [ordered]@{
                 Body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json -Depth 10))
-                Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
+                Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)"
                 Method = 'POST'
-                Headers = $authorization 
+                Headers = $authorization
                 Verbose = $False
             }
             $newAccount = Invoke-RestMethod @splat
             $aRef = $newAccount.id
 
             Write-Information ("New Account Created:  {0}" -f ($newAccount | ConvertTo-Json -Depth 10))
-            
+
             # Add Password for use in Onboard Notification
             $newAccount | Add-Member -NotePropertyName password -NotePropertyValue $defaultPassword
 
@@ -308,13 +305,13 @@ $result = [PSCustomObject]@{
     AuditLogs = $auditLogs;
     Account = $newAccount
     PreviousAccount = $previousAccount
-    
+
     # Optionally return data for use in other systems
     ExportData = [PSCustomObject]@{
         PrimaryEmail = $newAccount.PrimaryEmail
         OrgUnitPath = $newAccount.orgUnitPath
     }
 }
-    
+
 Write-Output ($result | ConvertTo-Json -Depth 10)
 #endregion build up result
