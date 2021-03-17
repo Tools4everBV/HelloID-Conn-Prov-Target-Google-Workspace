@@ -14,7 +14,7 @@ $auditLogs = New-Object Collections.Generic.List[PSCustomObject];
 function Get-GoogleAccessToken() {
     ### exchange the refresh token for an access token
     $requestUri = "https://www.googleapis.com/oauth2/v4/token"
-        
+
     $refreshTokenParams = @{
             client_id=$config.clientId;
             client_secret=$config.clientSecret;
@@ -24,7 +24,7 @@ function Get-GoogleAccessToken() {
     };
     $response = Invoke-RestMethod -Method Post -Uri $requestUri -Body $refreshTokenParams -Verbose:$false
     $accessToken = $response.access_token
-            
+
     #Add the authorization header to the request
     $authorization = [ordered]@{
         Authorization = "Bearer $accesstoken";
@@ -51,7 +51,7 @@ function Get-GoogleAccessToken() {
         orgUnitPath = $calcOrgUnitPath;
     }
 #endregion Change mapping here
- 
+
 #region Execute
 try{
     #Add the authorization header to the request
@@ -80,16 +80,16 @@ try{
     if(-Not($dryRun -eq $True)) {
         # Get Previous Account
         $splat = @{
-            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
+            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)"
             Method = 'GET'
-            Headers = $authorization 
+            Headers = $authorization
             Verbose = $False
         }
         $previousAccount = Invoke-RestMethod @splat
 
         $splat = @{
             body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json -Depth 10))
-            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
+            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)"
             Method = 'PUT'
             Headers = $authorization
             Verbose = $False
@@ -130,6 +130,6 @@ $result = [PSCustomObject]@{
         OrgUnitPath = $updatedAccount.orgUnitPath
     }
 }
-  
+
 Write-Output ($result | ConvertTo-Json -Depth 10)
 #endregion Build up result

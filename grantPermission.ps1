@@ -16,7 +16,7 @@ $auditLogs = New-Object Collections.Generic.List[PSCustomObject];
 function Get-GoogleAccessToken() {
     ### exchange the refresh token for an access token
     $requestUri = "https://www.googleapis.com/oauth2/v4/token"
-        
+
     $refreshTokenParams = @{
             client_id=$config.clientId;
             client_secret=$config.clientSecret;
@@ -26,7 +26,7 @@ function Get-GoogleAccessToken() {
     };
     $response = Invoke-RestMethod -Method Post -Uri $requestUri -Body $refreshTokenParams -Verbose:$false
     $accessToken = $response.access_token
-            
+
     #Add the authorization header to the request
     $authorization = [ordered]@{
         Authorization = "Bearer $accesstoken";
@@ -46,9 +46,9 @@ if(-Not($dryRun -eq $True)) {
 
         #Get Member Email
         $splat = @{
-            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
+            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)"
             Method = 'GET'
-            Headers = $authorization 
+            Headers = $authorization
             Verbose = $False
         }
         $userResponse = Invoke-RestMethod @splat
@@ -57,14 +57,14 @@ if(-Not($dryRun -eq $True)) {
         if($pRef.Type -eq "Group")
         {
             Write-Information "Applying Group Permission"
-            
+
             $account = [PSCustomObject]@{
                     email = $userResponse[0].primaryEmail
                     role = "MEMBER"
                 }
 
             $splat = @{
-                Uri = "https://www.googleapis.com/admin/directory/v1/groups/$($pRef.Id)/members" 
+                Uri = "https://www.googleapis.com/admin/directory/v1/groups/$($pRef.Id)/members"
                 Body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json))
                 Method = 'POST'
                 Headers = $authorization
@@ -72,7 +72,7 @@ if(-Not($dryRun -eq $True)) {
 
             $response = Invoke-RestMethod @splat
             $success = $True
-            
+
             $auditLogs.Add([PSCustomObject]@{
                 Action = "GrantMembership"
                 Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) successfully"
@@ -82,15 +82,15 @@ if(-Not($dryRun -eq $True)) {
         elseif($pRef.Type -eq "License")
         {
             Write-Information "Applying License Permission"
-            
-            $account = [PSCustomObject]@{   
+
+            $account = [PSCustomObject]@{
                     userId = $userResponse[0].primaryEmail
                 }
 
             $splat = @{
                 Uri = "https://licensing.googleapis.com/apps/licensing/v1/product/$($pRef.ProductId)/sku/$($pRef.SkuId)/user"
                 Body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json))
-                Method = 'POST' 
+                Method = 'POST'
                 Headers = $authorization
             }
             $response = Invoke-RestMethod @splat
@@ -114,8 +114,8 @@ if(-Not($dryRun -eq $True)) {
         }
     }catch
     {
-        Write-Verbose -Verbose "Status Code: $($_.Exception.Response.StatusCode.value__)"
-        Write-Verbose -Verbose ($_ | ConvertFrom-Json).error.message;
+        Write-Information "Status Code: $($_.Exception.Response.StatusCode.value__)"
+        Write-Information ($_ | ConvertFrom-Json).error.message;
         if($_.Exception.Response.StatusCode.value__ -eq 409)
         {
             $success = $True;
@@ -146,7 +146,7 @@ if(-Not($dryRun -eq $True)) {
                     Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) not successful - $($_)"
                     IsError = $true
                 });
-                
+
                 Write-Error $_;
             }
         }
@@ -158,7 +158,7 @@ if(-Not($dryRun -eq $True)) {
                 Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) not successful - $($_)"
                 IsError = $true
             });
-            
+
             Write-Error $_;
         }
     }

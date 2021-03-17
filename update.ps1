@@ -14,7 +14,7 @@ $auditLogs = New-Object Collections.Generic.List[PSCustomObject];
 function Get-GoogleAccessToken() {
     ### exchange the refresh token for an access token
     $requestUri = "https://www.googleapis.com/oauth2/v4/token"
-        
+
     $refreshTokenParams = @{
             client_id=$config.clientId;
             client_secret=$config.clientSecret;
@@ -22,9 +22,10 @@ function Get-GoogleAccessToken() {
             refresh_token=$config.refreshToken;
             grant_type="refresh_token"; # Fixed value
     };
+
     $response = Invoke-RestMethod -Method Post -Uri $requestUri -Body $refreshTokenParams -Verbose:$false
     $accessToken = $response.access_token
-            
+
     #Add the authorization header to the request
     $authorization = [ordered]@{
         Authorization = "Bearer $accesstoken";
@@ -43,21 +44,20 @@ function New-PrimaryEmail {
         [object]$person,
         [string]$domain,
         [int]$Iteration
-    ) 
-    Process 
-    {
+    )
+    Process {
         $suffix = "";
         if($Iteration -gt 0) { $suffix = "$($Iteration+1)" };
-        
+
         #Check Nickname
         if([string]::IsNullOrEmpty($p.Name.Nickname)) { $tempFirstName = $p.Name.GivenName } else { $tempFirstName = $p.Name.Nickname }
-        
+
         $tempLastName = $person.Name.FamilyName;
         $tempUsername = ("{0}.{1}" -f $tempFirstName,$tempLastName);
         $tempUsername = $tempUsername.substring(0,[Math]::Min(20-$suffix.Length,$tempUsername.Length));
         $result = ("{0}{1}@{2}" -f $tempUsername, $suffix, $domain);
         $result = $result.toLower();
-        
+
         return $result;
     }
 }
@@ -136,7 +136,7 @@ try{
                     query = "Email=$($calcPrimaryEmail)"
                     projection="FULL"
                 }
-                Uri = "https://www.googleapis.com/admin/directory/v1/users" 
+                Uri = "https://www.googleapis.com/admin/directory/v1/users"
                 Method = 'GET'
                 Headers = $authorization
                 Verbose = $False
@@ -157,10 +157,10 @@ try{
                 $Iterator++
                 $calcPrimaryEmail = New-PrimaryEmail -person $p -domain $defaultDomain -Iteration $Iterator
                 $account.primaryEmail = $calcPrimaryEmail
-                Write-Verbose -Verbose "Iteration $($Iterator) - $($account.primaryEmail)"
+                Write-Information "Iteration $($Iterator) - $($account.primaryEmail)"
             }
         } while ($account.primaryEmail -eq 'TBD' -AND $Iterator -lt $maxUsernameIterations)
-        
+
         #Check for exceeding max namegen iterations
         if($Iterator -ge $maxUsernameIterations)
         {
@@ -176,22 +176,22 @@ try{
     if(-Not($dryRun -eq $True)){
         # Get Previous Account
         $splat = @{
-            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
+            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)"
             Method = 'GET'
-            Headers = $authorization 
+            Headers = $authorization
             Verbose = $False
         }
         $previousAccount = Invoke-RestMethod @splat
 
         $splat = @{
-            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" 
+            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)"
             Method = 'PUT'
-            Headers = $authorization 
+            Headers = $authorization
             Body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json -Depth 10))
             Verbose = $False
         }
         $updatedAccount = Invoke-RestMethod @splat
-        
+
         #Write-Information ("Updated Account: {0}" -f ($updatedAccount | ConvertTo-Json -Depth 10))
         $auditLogs.Add([PSCustomObject]@{
             Action = "UpdateAccount"
@@ -203,8 +203,8 @@ try{
         $updatedAccount = $account;
     }
     $success = $True
-    
-}catch{
+
+} catch {
     $auditLogs.Add([PSCustomObject]@{
         Action = "UpdateAccount"
         Message = "Error updating account with PrimaryEmail $($account.primaryEmail) - Error: $($_)"
@@ -221,12 +221,12 @@ $result = [PSCustomObject]@{
     AuditLogs = $auditLogs;
     Account = $updatedAccount
     PreviousAccount = $previousAccount
-    
+
     ExportData = [PSCustomObject]@{
         PrimaryEmail = $updatedAccount.primaryEmail
         OrgUnitPath = $updatedAccount.orgUnitPath
     }
 };
-  
+
 Write-Output ($result | ConvertTo-Json -Depth 10)
 #endregion Build up result
