@@ -125,9 +125,10 @@ if(-Not($dryRun -eq $True)) {
 #endregion Execute
 
 #region Build up result
+Write-Information ($auditLogs | ConvertTo-Json)
 $result = [PSCustomObject]@{
     Success = $success
-    AuditDetails = $auditMessage
+    AuditLogs = $auditLogs;
 }
 
 Write-Output ($result | ConvertTo-Json -Depth 10)
