@@ -61,6 +61,63 @@ function New-PrimaryEmail {
         return $result;
     }
 }
+
+function Get-GoogleOuExists {
+    param (
+        [Parameter(Mandatory)]
+        [string]$orgUnitPath,
+        [bool]$createOuIfNotExists = $false,
+		[Parameter(Mandatory)]
+        $authorization
+    )
+	$googleOuExists = $false
+	
+	$splat = @{
+		Uri = ("https://www.googleapis.com/admin/directory/v1/customer/my_customer/orgunits{0}" -f $orgUnitPath)
+		Method = 'GET'
+		Headers = $authorization
+		Verbose = $False
+		ErrorAction = 'Stop'
+	}
+	#  API will error if target OU does not exist.
+	try {
+		$response = Invoke-RestMethod @splat
+		Write-Information ("Get-GoogleOuExists: Target OU {0} exists." -f $orgUnitPath)
+		
+		$googleOuExists = $true
+	} catch {
+		if ($createOuIfNotExists -eq $true) {
+			# Create the target OU
+			try {
+				$leafOU = $orgUnitPath.split("/")[-1]
+				$parentOU = $orgUnitPath.replace("/$leafOu","")
+				
+				$splat = @{
+					Uri = "https://www.googleapis.com/admin/directory/v1/customer/my_customer/orgunits"
+					Method = 'POST'
+					Headers = $authorization
+					Verbose = $true
+					ErrorAction = 'Stop'
+					Body = "{
+						'name':'$leafOU',
+						'parentOrgUnitPath': '$parentOU'
+						}"
+				}
+				$response = Invoke-RestMethod @splat
+
+				Write-Information ("Get-GoogleOuExists: Created organizational unit {0}." -f $orgUnitPath)
+				$googleOuExists = $true
+			} catch {
+				Write-Information ("Get-GoogleOuExists: Failed to create organizational unit {0}. Verify parent path exists." -f $orgUnitPath)
+				Write-Error $_
+			}
+		} else {
+			Write-Information ("Get-GoogleOuExists: Target OU {0} does not exist." -f $orgUnitPath)
+		}
+	}
+	
+	return $googleOuExists
+}
 #endregion Support Functions
 
 #region Change mapping here
@@ -106,19 +163,11 @@ try{
     $authorization = Get-GoogleAccessToken
 
     # Verify Target OU Exists.  Else, use Default OU
-    $splat = @{
-        Uri = ("https://www.googleapis.com/admin/directory/v1/customer/my_customer/orgunits{0}" -f $calcOrgUnitPath)
-        Method = 'GET'
-        Headers = $authorization
-        Verbose = $False
-        ErrorAction = 'Stop'
-    }
-    #  API will error if target OU does not exist.
-    try {
-        $response = Invoke-RestMethod @splat
+    $targetOuExists = Get-GoogleOuExists -orgUnitPath $calcOrgUnitPath -createOuIfNotExists $false -authorization $authorization 
+
+    if ($targetOuExists -eq $true) {
         $account.orgUnitPath = $calcOrgUnitPath
-    }
-    catch {
+    } else {
         Write-Information ("Target OU Not found.  Using Default OU: {0}" -f $defaultOrgUnitPath)
         $account.orgUnitPath = $defaultOrgUnitPath
     }
