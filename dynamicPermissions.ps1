@@ -6,25 +6,28 @@ $pd = $personDifferences | ConvertFrom-Json
 $m = $manager | ConvertFrom-Json
 $aRef = $accountReference | ConvertFrom-Json
 $mRef = $managerAccountReference | ConvertFrom-Json
-$pRef = $permissionReference | ConvertFrom-Json
-
-$currentPermissions = @{}
-foreach($permission in $pRef.CurrentPermissions) {
-    $currentPermissions[$permission.DisplayName] = $permission.Reference.Id
-}
 
 $success = $True
 $auditLogs = New-Object Collections.Generic.List[PSCustomObject]
-$dynamicPermissions = New-Object Collections.Generic.List[PSCustomObject]
 
 # Operation is a script parameter which contains the action HelloID wants to perform for this permission
 # It has one of the following values: "grant", "revoke", "update"
 $o = $operation | ConvertFrom-Json
 
-if($dryRun -eq $True) {
-    # Operation is empty for preview (dry run) mode, that's why we set it here.
-    $o = "grant"
+# The permissionReference contains the Identification object provided in the retrieve permissions call
+$pRef = $permissionReference | ConvertFrom-Json
+
+# The entitlementContext contains the sub permissions (Previously the $permissionReference variable)
+$eRef = $entitlementContext | ConvertFrom-Json
+
+$currentPermissions = @{}
+foreach($permission in $eRef.CurrentPermissions) {
+    $currentPermissions[$permission.Reference.Id] = $permission.DisplayName
 }
+
+# Determine all the sub-permissions that needs to be Granted/Updated/Revoked
+$subPermissions = New-Object Collections.Generic.List[PSCustomObject]
+
 #endregion Initialize default properties
 
 #region Support Functions
@@ -54,32 +57,32 @@ function Get-GoogleAccessToken() {
 
 #region Change mapping here
 $desiredPermissions = @{}
-foreach($contract in $p.Contracts) {
-    if($contract.Context.InConditions -OR ($dryRun -eq $True))
-    {
-        # Grades 7-12:  <Ordinal Grade>
-        if($contract.custom.grade -match '^\d+$' -AND [int]$contract.custom.grade -ge 7)
+if ($o -ne "revoke")
+{
+    # Contract Based Logic:
+    foreach($contract in $p.Contracts) {
+        if(($contract.Context.InConditions) -OR ($dryRun -eq $True))
         {
-            $group_Name = "{0}th" -f [int]$contract.custom.grade
-            $desiredPermissions[$group_Name] = $group_Name
-            Write-Verbose -Verbose ("Defined Group:  {0}" -f $group_Name)
+            # <Group Prefix>.students.<grade>
+            # P => PreK, 01-12 - Drop leading 0's
+            if(-NOT [string]::IsNullOrWhiteSpace($contract.custom.GroupPrefix))
+            {
+                $grade = $p.Custom.Grade -Replace '^0','' -Replace 'P','PreK'
+                $group_sAMAccountName = "{0}.students.{1}" -f $contract.Custom.GroupPrefix,$grade
+                $desiredPermissions[$group_sAMAccountName] = $group_sAMAccountName
+            }    
         }
-
-        # <School Level>Internet
-        $group_Name = "{0}Internet" -f $contract.custom.schoolLevel.replace("High","Highschool")
-        $desiredPermissions[$group_Name] = $group_Name
-        Write-Verbose -Verbose ("Defined Group:  {0}" -f $group_Name)
     }
 }
 
-Write-Verbose -Verbose ("Defined Permissions: {0}" -f ($desiredPermissions.keys | ConvertTo-Json))
+Write-Information ("Defined Permissions: {0}" -f ($desiredPermissions.keys | ConvertTo-Json))
 #endregion Change mapping here
 
 #region Execute
-Write-Verbose -Verbose ("Existing Permissions: {0}" -f $permissionReference)
+Write-Information ("Existing Permissions: {0}" -f $entitlementContext)
 
-# Add the authorization header to the request
-$authorization = Get-GoogleAccessToken
+# Get the authorization header
+	$authorization = Get-GoogleAccessToken
 
 # Get User Primary Email:
     $splat = @{
@@ -100,7 +103,7 @@ foreach($permission in $desiredPermissions.GetEnumerator()) {
 
     if(-Not $currentPermissions.ContainsKey($permission.Name))
     {
-        $targetGroup = $null
+		$targetGroup = $null
         # Get Group from Google
         $splat = @{
             Body = @{
@@ -119,70 +122,69 @@ foreach($permission in $desiredPermissions.GetEnumerator()) {
             $permissionSuccess = $True
         } else {
             write-warning ("Unable to find target group: {0}" -f $permission.Name)
-            <# Uncomment the following block to create the defined group.
-            # Create the group, because it doesn't exist
-            $newGroup = @{
-                name = "{0}" -f $permission.Name
-                email = "{0}@{1}" -f $permission.Name,$config.defaultDomain
-                description = ""
-            }
-
-            if(-Not($dryRun -eq $True)){
-                $splat = @{
-                    Body = $newGroup | ConvertTo-Json -Depth 10
-                    Uri = "https://www.googleapis.com/admin/directory/v1/groups" 
-                    Method = 'POST' 
-                    Headers = $authorization 
-                    Verbose = $False
-                }
-                $targetGroup = Invoke-RestMethod @splat
-                $permissionSuccess = $True
-
-                Write-Information ("Created group {0} successfully." -f $permission.Name)
-                $auditLogs.Add([PSCustomObject]@{
-                    Action = "GrantDynamicPermission"
-                    Message = "Created Group: {0}" -f $newGroup.email
-                    IsError = -Not $permissionSuccess
-                })
+            if($config.createDynamicGroups)
+            {
+		        # Create the group, because it doesn't exist
+		        $newGroup = @{
+		            name = "{0}" -f $permission.Name
+		            email = "{0}@{1}" -f $permission.Name,$config.defaultDomain
+		            description = ""
+		        }
+		        if(-Not($dryRun -eq $True)){
+		            $splat = @{
+		                Body = $newGroup | ConvertTo-Json -Depth 10
+		                Uri = "https://www.googleapis.com/admin/directory/v1/groups" 
+		                Method = 'POST' 
+		                Headers = $authorization 
+		                Verbose = $False
+		                ErrorAction = 'Stop'
+		            }
+		            $targetGroup = Invoke-RestMethod @splat
+		            $permissionSuccess = $True
+		            Write-Information ("Created group {0} successfully." -f $permission.Name)
+		            $auditLogs.Add([PSCustomObject]@{
+		                Action = "GrantDynamicPermission"
+		                Message = "Created Group: {0}" -f $newGroup.email
+		                IsError = -Not $permissionSuccess
+		            })
+		        } else {
+		            Write-Information ("Dry run. Would have created group {0} during live run." -f $permission.Name)
+		        }
             } else {
-                Write-Information ("Dry run. Would have created group {0} during live run." -f $permission.Name)
-            }
-            #>
-            
-            # If creating group, comment out the following Success variables
-            $permissionSuccess = $False
-            $success = $False
+				# Not creating missing Group
+	            $permissionSuccess = $False
+	            $success = $False
+	        }
         }
-        
+
         # Add Permission to return list of Dynamic Permissions.  
         #   Populate the ID with the ID of the target group (to be used with Revokes)
-        $dynamicPermissions.Add([PSCustomObject]@{
+        $subPermissions.Add([PSCustomObject]@{
             DisplayName = $permission.Name
             Reference = [PSCustomObject]@{ Id = $targetGroup.id }
-        })
+    	})
         # Add user to Membership
         if(-Not($dryRun -eq $True) -AND $null -ne $targetGroup)
         {
-            $membership = @{
+        	$membership = @{
                 email = $userResponse[0].primaryEmail
                 role = "MEMBER"
             }
 
-            try {
-                if(-Not($dryRun -eq $True)){
-                    $splat = @{
-                        Uri = "https://www.googleapis.com/admin/directory/v1/groups/{0}/members" -f $targetGroup.id
-                        Body = $membership | ConvertTo-Json
-                        Method = 'POST'
-                        Headers = $authorization
-                    }
-                    $response = Invoke-RestMethod @splat
-                    $permissionSuccess = $True
-                    Write-Verbose -Verbose ("Successfully Granted Permission to: {0}" -f $permission.Name)
+            try
+            {
+                $splat = @{
+                    Uri = "https://www.googleapis.com/admin/directory/v1/groups/{0}/members" -f $targetGroup.id
+                    Body = $membership | ConvertTo-Json
+                    Method = 'POST'
+                    Headers = $authorization
+                    ErrorAction = 'Stop'
                 }
-
+                $response = Invoke-RestMethod @splat
+                $permissionSuccess = $True                
+                Write-Information ("Successfully Granted Permission to: {0}" -f $permission.Name)
             } catch {
-                Write-Information "Status Code: $($_.Exception.Response.StatusCode.value__)"
+				Write-Information "Status Code: $($_.Exception.Response.StatusCode.value__)"
                 Write-Information ($_ | ConvertFrom-Json).error.message;
                 if($_.Exception.Response.StatusCode.value__ -eq 409)
                 {
@@ -191,17 +193,17 @@ foreach($permission in $desiredPermissions.GetEnumerator()) {
                 }
                 else
                 {
-                    $success = $False
-                    $permissionSuccess = $False
-                    # Log error for further analysis.  Contact Tools4ever Support to further troubleshoot
-                    Write-Error ("Error Granting Permission for Group [{0}]:  {1}" -f $permission.Name, $_)
-                }
+                	$success = $False
+                	$permissionSuccess = $False
+	                # Log error for further analysis.  Contact Tools4ever Support to further troubleshoot
+	                Write-Error ("Error Granting Permission for Group [{0}]:  {1}" -f $permission.Name, $_)
+	            }
             }
         }
 
         $auditLogs.Add([PSCustomObject]@{
-            Action = "GrantDynamicPermission"
-            Message = "Granted access to group $($permission.Value)";
+            Action = "GrantPermission"
+            Message = "Granted access to group: {0}" -f $permission.Value
             IsError = -NOT $permissionSuccess
         })
     }    
@@ -210,20 +212,24 @@ foreach($permission in $desiredPermissions.GetEnumerator()) {
 # Compare current with desired permissions and revoke permissions
 $newCurrentPermissions = @{}
 foreach($permission in $currentPermissions.GetEnumerator()) {    
-    if(-Not $desiredPermissions.ContainsKey($permission.Name))
+    if(-Not $desiredPermissions.ContainsKey($permission.Name) -AND $permission.Name -ne "No Groups Defined")
     {
-        try {
-            # Revoke Membership
-            if(-Not($dryRun -eq $True)){
+        # Revoke Membership
+        if(-Not($dryRun -eq $True))
+        {
+            try
+            {
                 $splat = @{
                     Uri = "https://www.googleapis.com/admin/directory/v1/groups/{0}/members/{1}" -f $permission.Value,$aRef
                     Method = 'DELETE' 
                     Headers = $authorization
+                    ErrorAction = 'Stop'
                 }
                 $response = Invoke-RestMethod @splat
-                $permissionSuccess = $True;
+                $permissionSuccess = $True
             }
-        } catch {
+            catch
+            {
             if($_.Exception.Response.StatusCode -eq 'NotFound')
             {
                 $permissionSuccess = $True;
@@ -239,8 +245,8 @@ foreach($permission in $currentPermissions.GetEnumerator()) {
         }
         
         $auditLogs.Add([PSCustomObject]@{
-            Action = "RevokeDynamicPermission"
-            Message = "Revoked access to group: {0}" -f $permission.Name 
+            Action = "RevokePermission"
+            Message = "Revoked access to group: {0}" -f $permission.Name
             IsError = -Not $permissionSuccess
         })
     } else {
@@ -253,19 +259,29 @@ foreach($permission in $currentPermissions.GetEnumerator()) {
 if ($o -eq "update") {
     foreach($permission in $newCurrentPermissions.GetEnumerator()) {    
         $auditLogs.Add([PSCustomObject]@{
-            Action = "UpdateDynamicPermission"
+            Action = "UpdatePermission"
             Message = "Updated access to department share $($permission.Value)"
             IsError = $False
         })
     }
 }
 #>
+
+# Handle case of empty defined dynamic permissions.  Without this the entitlement will error.
+if ($o -match "update|grant" -AND $subPermissions.count -eq 0)
+{
+    $subPermissions.Add([PSCustomObject]@{
+            DisplayName = "No Groups Defined"
+            Reference = [PSCustomObject]@{ Id = "No Groups Defined" }
+    })
+}
+
 #endregion Execute
 
 #region Build up result
 $result = [PSCustomObject]@{
     Success = $success
-    DynamicPermissions = $dynamicPermissions
+    SubPermissions = $subPermissions
     AuditLogs = $auditLogs
 }
 Write-Output ($result | ConvertTo-Json -Depth 10)
