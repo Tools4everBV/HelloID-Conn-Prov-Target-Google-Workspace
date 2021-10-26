@@ -72,5 +72,13 @@
       "label": "Account Correlation Field",
       "required": true
     }
+  },
+  {
+    "key": "createDynamicGroups",
+    "type": "checkbox",
+    "defaultValue": false,
+    "templateOptions": {
+      "label": "Allow Creation of DynamicGroups"
+    }
   }
 ]
