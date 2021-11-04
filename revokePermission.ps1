@@ -110,6 +110,16 @@ if(-Not($dryRun -eq $True)) {
                 IsError = $false;
             });
         }
+        elseif($_.Exception.Response.StatusCode.value__ -eq 404)
+        {
+            $success = $True
+
+            $auditLogs.Add([PSCustomObject]@{
+                Action = "RevokeMembership"
+                Message = "Membership for person $($p.DisplayName) removed from $($pRef.Displayname) successfully (Membership not found.)"
+                IsError = $false;
+            });
+        }
         else
         {
             $auditLogs.Add([PSCustomObject]@{
