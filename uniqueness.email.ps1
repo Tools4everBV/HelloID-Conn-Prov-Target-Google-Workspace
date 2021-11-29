@@ -91,7 +91,7 @@ try{
 
         if($uniquenessResponse.users.count -gt 0)
         {
-            $success = $False;
+            $success = $True;
             Write-Verbose -Verbose "$($config.uniqueFieldValue) is not unique in Google GSuite [Conflict]"
             $NonUniqueFields = @("mail");
         }
