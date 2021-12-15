@@ -8,7 +8,7 @@ $aRef = $accountReference | ConvertFrom-Json
 $mRef = $managerAccountReference | ConvertFrom-Json
 
 $success = $True
-$auditLogs = New-Object Collections.Generic.List[PSCustomObject]
+$auditLogs = [Collections.Generic.List[PSCustomObject]]@()
 
 # Operation is a script parameter which contains the action HelloID wants to perform for this permission
 # It has one of the following values: "grant", "revoke", "update"
@@ -26,7 +26,7 @@ foreach($permission in $eRef.CurrentPermissions) {
 }
 
 # Determine all the sub-permissions that needs to be Granted/Updated/Revoked
-$subPermissions = New-Object Collections.Generic.List[PSCustomObject]
+$subPermissions = [Collections.Generic.List[PSCustomObject]]@()
 
 #endregion Initialize default properties
 
@@ -230,17 +230,18 @@ foreach($permission in $currentPermissions.GetEnumerator()) {
             }
             catch
             {
-            if($_.Exception.Response.StatusCode -eq 'NotFound')
-            {
-                $permissionSuccess = $True;
-                Write-Warning ("User not found in target Group.  Membership not removed.")
-            }
-            else
-            {
-                $permissionSuccess = $False
-                $success = $False
-                # Log error for further analysis.  Contact Tools4ever Support to further troubleshoot.
-                Write-Error ("Error Revoking Permission from Group [{0}]:  {1}" -f $permission.Name, $_)
+                if($_.Exception.Response.StatusCode -eq 'NotFound')
+                {
+                    $permissionSuccess = $True;
+                    Write-Warning ("User not found in target Group.  Membership not removed.")
+                }
+                else
+                {
+                    $permissionSuccess = $False
+                    $success = $False
+                    # Log error for further analysis.  Contact Tools4ever Support to further troubleshoot.
+                    Write-Error ("Error Revoking Permission from Group [{0}]:  {1}" -f $permission.Name, $_)
+                }
             }
         }
         

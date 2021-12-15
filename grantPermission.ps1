@@ -9,7 +9,7 @@ $mRef = $managerAccountReference | ConvertFrom-Json
 $pRef = $permissionReference | ConvertFrom-json
 
 $success = $False
-$auditLogs = New-Object Collections.Generic.List[PSCustomObject];
+$auditLogs = [Collections.Generic.List[PSCustomObject]]@()
 #endregion Initialize default properties
 
 #region Support Functions
