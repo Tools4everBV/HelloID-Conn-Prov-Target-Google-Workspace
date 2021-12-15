@@ -6,15 +6,19 @@ $pd = $personDifferences | ConvertFrom-Json
 $m = $manager | ConvertFrom-Json
 
 $success = $False
-$auditLogs = New-Object Collections.Generic.List[PSCustomObject];
+$auditLogs = [Collections.Generic.List[PSCustomObject]]@()
 #endregion Initialize default properties
 
 #region Support Functions
-function New-RandomPassword($PasswordLength) {
-    if($PasswordLength -lt 8) { $PasswordLength = 8}
+function New-RandomPassword($PasswordLength)
+{
+    # Length of the password to be generated
+    #$PasswordLength = 20
 
+    if($PasswordLength -lt 4) {$PasswordLength = 4}
+        
     # Used to store an array of characters that can be used for the password
-    $CharPool = New-Object System.Collections.ArrayList
+    $CharPool = [System.Collections.ArrayList]@()
 
     # Add characters a-z to the arraylist
     for ($index = 97; $index -le 122; $index++) { [Void]$CharPool.Add([char]$index) }
@@ -24,16 +28,17 @@ function New-RandomPassword($PasswordLength) {
 
     # Add digits 0-9 to the arraylist
     $CharPool.AddRange(@("0","1","2","3","4","5","6","7","8","9"))
-
+        
     # Add a range of special characters to the arraylist
     $CharPool.AddRange(@("!","""","#","$","%","&","'","(",")","*","+","-",".","/",":",";","<","=",">","?","@","[","\","]","^","_","{","|","}","~","!"))
-
+        
     $password=""
-    $rand=New-Object System.Random
-
+    $rand= [System.Random]::new()
+        
     # Generate password by appending a random value from the array list until desired length of password is reached
-    1..$PasswordLength | ForEach-Object { $password = $password + $CharPool[$rand.Next(0,$CharPool.Count)] }
-
+    1..$PasswordLength | foreach { $password = $password + $CharPool[$rand.Next(0,$CharPool.Count)] }  
+        
+    #print password
     $password
 }
 
@@ -117,7 +122,7 @@ function Get-CorrelationResult {
     #Defaults, create only
     $usePasswordHash = $true
     $defaultPassword = New-RandomPassword(8)
-    $passwordHash = ([System.BitConverter]::ToString((New-Object -TypeName System.Security.Cryptography.SHA1CryptoServiceProvider).ComputeHash((New-Object -TypeName System.Text.UTF8Encoding).GetBytes($defaultPassword)))).Replace("-","")
+    $passwordHash = [System.BitConverter]::ToString(([System.Security.Cryptography.SHA1CryptoServiceProvider]::new()).ComputeHash((([System.Text.UTF8Encoding]::new()).GetBytes($defaultPassword)))).Replace("-","")
 
     $defaultDomain = $config.defaultDomain
     $defaultOrgUnitPath = "/Disabled"
