@@ -10,6 +10,24 @@ $auditLogs = [Collections.Generic.List[PSCustomObject]]@()
 #endregion Initialize default properties
 
 #region Support Functions
+function Get-ConfigProperty
+{
+    [cmdletbinding()]
+    Param (
+        [object]$object,
+        [string]$property
+    )
+    Process {
+        $subItems = $property.split('.')
+        $value = $object.psObject.copy()
+        for($i = 0; $i -lt $subItems.count; $i++)
+        {
+            $value = $value."$($subItems[$i])"
+        }
+        return $value
+    }
+}
+
 function New-RandomPassword($PasswordLength)
 {
     # Length of the password to be generated
@@ -130,7 +148,7 @@ function Get-CorrelationResult {
 
     #Correlation
     $useCorrelation = $config.correlationEnabled;
-    $correlationPersonField = ($config.correlationPersonField | Invoke-Expression)
+    $correlationPersonField = Get-ConfigProperty -object $p -property ($config.correlationPersonField -replace '\$p.','')
     $correlationAccountField = $config.correlationAccountField
 
     #Username Generation
