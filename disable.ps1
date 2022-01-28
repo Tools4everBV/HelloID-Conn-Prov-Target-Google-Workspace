@@ -157,12 +157,25 @@ try{
 
     $success = $True
 }catch{
-    $auditLogs.Add([PSCustomObject]@{
-        Action = "DisableAccount"
-        Message = "Error disabling/updating account with PrimaryEmail $($previousAccount.primaryEmail) - Error: $($_)"
-        IsError = $true;
-    });
-    Write-Error $_
+    if($_.Exception.Response.StatusCode.value__ -eq 404)
+    {
+        $success = $True
+        $auditLogs.Add([PSCustomObject]@{
+            Action = "DisableAccount"
+            Message = "Disable Skipped, Account doesn't exist [$($aRef)]"
+            IsError = $false;
+        });
+
+    }
+    else
+    {
+        $auditLogs.Add([PSCustomObject]@{
+            Action = "DisableAccount"
+            Message = "Error disabling/updating account with PrimaryEmail $($previousAccount.primaryEmail) - Error: $($_)"
+            IsError = $true;
+        });
+        Write-Error $_
+    }
 }
 #endregion Execute
 
