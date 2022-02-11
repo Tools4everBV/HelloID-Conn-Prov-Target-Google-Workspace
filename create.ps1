@@ -130,7 +130,26 @@ function Get-CorrelationResult {
             Headers = $authorization
             Verbose = $False
         }
-        $correlationResponse = Invoke-RestMethod @splat
+        $retryCount = 0
+        do{
+            $retry = $false
+            try {
+                $correlationResponse = Invoke-RestMethod @splat
+            }
+            catch {
+                if ($_.ErrorDetails.Message -match "Quota exceeded" -AND $retryCount -lt 5)
+                {
+                    $retry = $true
+                    Start-Sleep -Milliseconds (([Math]::Pow(2,$retryCount++) * 1000) + (Get-Random 1000))
+                }
+                else
+                {
+                    write-error ("Unknown Error: {0}" -f $_)
+                    throw $_
+                }
+            }
+        } while ($retry)
+        
         return $correlationResponse
     }
 }
@@ -222,8 +241,26 @@ try
                 Headers = $authorization
                 Verbose = $False
             }
-            $newAccount = Invoke-RestMethod @splat
-
+            $retryCount = 0
+            do{
+                $retry = $false
+                try {
+                    $newAccount = Invoke-RestMethod @splat
+                }
+                catch {
+                    if ($_.ErrorDetails.Message -match "Quota exceeded" -AND $retryCount -lt 5)
+                    {
+                        $retry = $true
+                        Start-Sleep -Milliseconds (([Math]::Pow(2,$retryCount++) * 1000) + (Get-Random 1000))
+                    }
+                    else
+                    {
+                        write-error ("Unknown Error: {0}" -f $_)
+                        throw $_
+                    }
+                }
+            } while ($retry)
+            
             $auditLogs.Add([PSCustomObject]@{
                 Action = "UpdateAccount"
                 Message = "Updated Existing Account"
@@ -250,7 +287,26 @@ try
                 Headers = $authorization
                 Verbose =$False
             }
-            $calcPrimaryEmailResponse = Invoke-RestMethod @splat
+            $retryCount = 0
+            do{
+                $retry = $false
+                try {
+                    $calcPrimaryEmailResponse = Invoke-RestMethod @splat
+                }
+                catch {
+                    if ($_.ErrorDetails.Message -match "Quota exceeded" -AND $retryCount -lt 5)
+                    {
+                        $retry = $true
+                        Start-Sleep -Milliseconds (([Math]::Pow(2,$retryCount++) * 1000) + (Get-Random 1000))
+                    }
+                    else
+                    {
+                        write-error ("Unknown Error: {0}" -f $_)
+                        throw $_
+                    }
+                }
+            } while ($retry)
+            
 
             if($calcPrimaryEmailResponse.users.count -gt 0)
             {
@@ -291,7 +347,26 @@ try
                 Headers = $authorization
                 Verbose = $False
             }
-            $newAccount = Invoke-RestMethod @splat
+            $retryCount = 0
+            do{
+                $retry = $false
+                try {
+                    $newAccount = Invoke-RestMethod @splat
+                }
+                catch {
+                    if ($_.ErrorDetails.Message -match "Quota exceeded" -AND $retryCount -lt 5)
+                    {
+                        $retry = $true
+                        Start-Sleep -Milliseconds (([Math]::Pow(2,$retryCount++) * 1000) + (Get-Random 1000))
+                    }
+                    else
+                    {
+                        write-error ("Unknown Error: {0}" -f $_)
+                        throw $_
+                    }
+                }
+            } while ($retry)
+            
             $aRef = $newAccount.id
 
             Write-Information ("New Account Created:  {0}" -f ($newAccount | ConvertTo-Json -Depth 10))

@@ -48,11 +48,47 @@ try{
             Headers = $authorization
             Verbose = $False
         }
-        $previousAccount = Invoke-RestMethod @splat
-
+		$retryCount = 0
+		do{
+			$retry = $false
+			try {
+				$previousAccount = Invoke-RestMethod @splat
+			}
+			catch {
+				if ($_.ErrorDetails.Message -match "Quota exceeded" -AND $retryCount -lt 5)
+				{
+					$retry = $true
+					Start-Sleep -Milliseconds (([Math]::Pow(2,$retryCount++) * 1000) + (Get-Random 1000))
+				}
+				else
+				{
+					write-error ("Unknown Error: {0}" -f $_)
+					throw $_
+				}
+			}
+		} while ($retry)
+        
         #Delete Account
-        $response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" -Method DELETE -Headers $authorization -Verbose:$false
-
+		$retryCount = 0
+		do{
+			$retry = $false
+			try {
+				$response = Invoke-RestMethod -Uri "https://www.googleapis.com/admin/directory/v1/users/$($aRef)" -Method DELETE -Headers $authorization -Verbose:$false
+			}
+			catch {
+				if ($_.ErrorDetails.Message -match "Quota exceeded" -AND $retryCount -lt 5)
+				{
+					$retry = $true
+					Start-Sleep -Milliseconds (([Math]::Pow(2,$retryCount++) * 1000) + (Get-Random 1000))
+				}
+				else
+				{
+					write-error ("Unknown Error: {0}" -f $_)
+					throw $_
+				}
+			}
+		} while ($retry)
+        
         $auditLogs.Add([PSCustomObject]@{
             Action = "DeleteAccount"
             Message = "Deleted account with PrimaryEmail $($previousAccount.primaryEmail)"

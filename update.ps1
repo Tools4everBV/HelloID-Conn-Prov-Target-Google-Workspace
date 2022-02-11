@@ -67,56 +67,71 @@ function Get-GoogleOuExists {
         [Parameter(Mandatory)]
         [string]$orgUnitPath,
         [bool]$createOuIfNotExists = $false,
-		[Parameter(Mandatory)]
+        [Parameter(Mandatory)]
         $authorization
     )
-	$googleOuExists = $false
-	
-	$splat = @{
-		Uri = ("https://www.googleapis.com/admin/directory/v1/customer/my_customer/orgunits{0}" -f $orgUnitPath)
-		Method = 'GET'
-		Headers = $authorization
-		Verbose = $False
-		ErrorAction = 'Stop'
-	}
-	#  API will error if target OU does not exist.
-	try {
-		$response = Invoke-RestMethod @splat
-		Write-Information ("Get-GoogleOuExists: Target OU {0} exists." -f $orgUnitPath)
-		
-		$googleOuExists = $true
-	} catch {
-		if ($createOuIfNotExists -eq $true) {
-			# Create the target OU
-			try {
-				$leafOU = $orgUnitPath.split("/")[-1]
-				$parentOU = $orgUnitPath.replace("/$leafOu","")
-				
-				$splat = @{
-					Uri = "https://www.googleapis.com/admin/directory/v1/customer/my_customer/orgunits"
-					Method = 'POST'
-					Headers = $authorization
-					Verbose = $true
-					ErrorAction = 'Stop'
-					Body = "{
-						'name':'$leafOU',
-						'parentOrgUnitPath': '$parentOU'
-						}"
-				}
-				$response = Invoke-RestMethod @splat
+    $googleOuExists = $false
+    
+    $splat = @{
+        Uri = ("https://www.googleapis.com/admin/directory/v1/customer/my_customer/orgunits{0}" -f $orgUnitPath)
+        Method = 'GET'
+        Headers = $authorization
+        Verbose = $False
+        ErrorAction = 'Stop'
+    }
+    #  API will error if target OU does not exist.
+    $retryCount = 0
+    do{
+        $retry = $false
+        try {
+            $response = Invoke-RestMethod @splat
+            Write-Information ("Get-GoogleOuExists: Target OU {0} exists." -f $orgUnitPath)
+            
+            $googleOuExists = $true
+        } catch {
+            if ($_.ErrorDetails.Message -match "Org unit not found" -AND $createOuIfNotExists -eq $true) {
+                # Create the target OU
+                try {
+                    $leafOU = $orgUnitPath.split("/")[-1]
+                    $parentOU = $orgUnitPath.replace("/$leafOu","")
+                    
+                    $splat = @{
+                        Uri = "https://www.googleapis.com/admin/directory/v1/customer/my_customer/orgunits"
+                        Method = 'POST'
+                        Headers = $authorization
+                        Verbose = $true
+                        ErrorAction = 'Stop'
+                        Body = "{
+                            'name':'$leafOU',
+                            'parentOrgUnitPath': '$parentOU'
+                            }"
+                    }
+                    $response = Invoke-RestMethod @splat
 
-				Write-Information ("Get-GoogleOuExists: Created organizational unit {0}." -f $orgUnitPath)
-				$googleOuExists = $true
-			} catch {
-				Write-Information ("Get-GoogleOuExists: Failed to create organizational unit {0}. Verify parent path exists." -f $orgUnitPath)
-				Write-Error $_
-			}
-		} else {
-			Write-Information ("Get-GoogleOuExists: Target OU {0} does not exist." -f $orgUnitPath)
-		}
-	}
-	
-	return $googleOuExists
+                    Write-Information ("Get-GoogleOuExists: Created organizational unit {0}." -f $orgUnitPath)
+                    $googleOuExists = $true
+                } catch {
+                    Write-Information ("Get-GoogleOuExists: Failed to create organizational unit {0}. Verify parent path exists." -f $orgUnitPath)
+                    Write-Error $_
+                }
+            }
+            elseif ($_.ErrorDetails.Message -match "Org unit not found" -OR $retryCount -ge 5)
+            {
+                Write-Information ("Get-GoogleOuExists: Target OU {0} does not exist." -f $orgUnitPath)
+            }
+            elseif ($_.ErrorDetails.Message -match "Quota exceeded")
+            {
+                $retry = $true
+                Start-Sleep -Milliseconds (([Math]::Pow(2,$retryCount++) * 1000) + (Get-Random 1000))
+            }
+            else # Unknown Error
+            {
+                Write-Information ("Get-GoogleOuExists: Unknown Error Finding OU.  Using Default OU: {0}" -f $defaultOrgUnitPath)
+            }
+        }
+    } while ($retry)
+    
+    return $googleOuExists
 }
 #endregion Support Functions
 
@@ -163,7 +178,7 @@ try{
     $authorization = Get-GoogleAccessToken
 
     # Verify Target OU Exists.  Else, use Default OU
-    $targetOuExists = Get-GoogleOuExists -orgUnitPath $calcOrgUnitPath -createOuIfNotExists $false -authorization $authorization 
+    $targetOuExists = Get-GoogleOuExists -orgUnitPath $calcOrgUnitPath -createOuIfNotExists $config.createOuIfNotExists -authorization $authorization 
 
     if ($targetOuExists -eq $true) {
         $account.orgUnitPath = $calcOrgUnitPath
@@ -190,8 +205,26 @@ try{
                 Headers = $authorization
                 Verbose = $False
             }
-            $primaryEmailResponse = Invoke-RestMethod @splat
-
+            $retryCount = 0
+            do{
+                $retry = $false
+                try {
+                    $primaryEmailResponse = Invoke-RestMethod @splat
+                }
+                catch {
+                    if ($_.ErrorDetails.Message -match "Quota exceeded" -AND $retryCount -lt 5)
+                    {
+                        $retry = $true
+                        Start-Sleep -Milliseconds (([Math]::Pow(2,$retryCount++) * 1000) + (Get-Random 1000))
+                    }
+                    else
+                    {
+                        write-error ("Unknown Error: {0}" -f $_)
+                        throw $_
+                    }
+                }
+            } while ($retry)
+            
             # Count = 0 - Email not taken.  Use it.
             # Count > 0 - Email taken
             #     Check ID:  If match, use it.  If not, iterate.
@@ -230,8 +263,27 @@ try{
             Headers = $authorization
             Verbose = $False
         }
-        $previousAccount = Invoke-RestMethod @splat
-
+        $retryCount = 0
+        do{
+            $retry = $false
+            try {
+                $previousAccount = Invoke-RestMethod @splat
+            }
+            catch {
+                if ($_.ErrorDetails.Message -match "Quota exceeded" -AND $retryCount -lt 5)
+                {
+                    $retry = $true
+                    Start-Sleep -Milliseconds (([Math]::Pow(2,$retryCount++) * 1000) + (Get-Random 1000))
+                }
+                else
+                {
+                    write-error ("Unknown Error: {0}" -f $_)
+                    throw $_
+                }
+            }
+        } while ($retry)
+        
+        # Send Updated Account Settings
         $splat = @{
             Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)"
             Method = 'PUT'
@@ -239,7 +291,26 @@ try{
             Body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json -Depth 10))
             Verbose = $False
         }
-        $updatedAccount = Invoke-RestMethod @splat
+        $retryCount = 0
+        do{
+            $retry = $false
+            try {
+                $updatedAccount = Invoke-RestMethod @splat
+                #Write-Information ("Response: {0}" -f ($response | ConvertTo-Json -Depth 50))
+            }
+            catch {
+                if ($_.ErrorDetails.Message -match "Quota exceeded" -AND $retryCount -lt 5)
+                {
+                    $retry = $true
+                    Start-Sleep -Milliseconds (([Math]::Pow(2,$retryCount++) * 1000) + (Get-Random 1000))
+                }
+                else
+                {
+                    write-error ("Unknown Error: {0}" -f $_)
+                    throw $_
+                }
+            }
+        } while ($retry)
 
         #Write-Information ("Updated Account: {0}" -f ($updatedAccount | ConvertTo-Json -Depth 10))
         $auditLogs.Add([PSCustomObject]@{

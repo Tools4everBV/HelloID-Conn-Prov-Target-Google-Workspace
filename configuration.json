@@ -80,5 +80,13 @@
     "templateOptions": {
       "label": "Allow Creation of DynamicGroups"
     }
+  },
+  {
+    "key": "createOuIfNotExists",
+    "type": "checkbox",
+    "defaultValue": false,
+    "templateOptions": {
+      "label": "Allow Creation of Missing Org Units"
+    }
   }
 ]

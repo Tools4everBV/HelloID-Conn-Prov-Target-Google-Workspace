@@ -22,7 +22,7 @@ $eRef = $entitlementContext | ConvertFrom-Json
 
 $currentPermissions = @{}
 foreach($permission in $eRef.CurrentPermissions) {
-    $currentPermissions[$permission.Reference.Id] = $permission.DisplayName
+    $currentPermissions[$permission.DisplayName] = $permission.Reference.Id
 }
 
 # Determine all the sub-permissions that needs to be Granted/Updated/Revoked
@@ -63,13 +63,14 @@ if ($o -ne "revoke")
     foreach($contract in $p.Contracts) {
         if(($contract.Context.InConditions) -OR ($dryRun -eq $True))
         {
+            # Note:  Generate Group Email (without the @<domain>).  Group Name lookup does not work well with Google.
             # <Group Prefix>.students.<grade>
             # P => PreK, 01-12 - Drop leading 0's
             if(-NOT [string]::IsNullOrWhiteSpace($contract.custom.GroupPrefix))
             {
                 $grade = $p.Custom.Grade -Replace '^0','' -Replace 'P','PreK'
-                $group_sAMAccountName = "{0}.students.{1}" -f $contract.Custom.GroupPrefix,$grade
-                $desiredPermissions[$group_sAMAccountName] = $group_sAMAccountName
+                $group_email = "{0}.students.{1}" -f $contract.Custom.GroupPrefix,$grade
+                $desiredPermissions[$group_email] = $group_email
             }    
         }
     }
@@ -82,17 +83,35 @@ Write-Information ("Defined Permissions: {0}" -f ($desiredPermissions.keys | Con
 Write-Information ("Existing Permissions: {0}" -f $entitlementContext)
 
 # Get the authorization header
-	$authorization = Get-GoogleAccessToken
+    $authorization = Get-GoogleAccessToken
 
 # Get User Primary Email:
     $splat = @{
         Uri = "https://www.googleapis.com/admin/directory/v1/users/{0}" -f $aRef
-        Method = 'GET'
+        Method  = 'GET'
         Headers = $authorization 
-        Verbose =$False
+        Verbose = $False
     }
     try{
-        $userResponse = Invoke-RestMethod @splat
+        $retryCount = 0
+        do{
+            $retry = $false
+            try {
+                $userResponse = Invoke-RestMethod @splat
+            }
+            catch {
+                if ($_.ErrorDetails.Message -match "Quota exceeded" -AND $retryCount -lt 5)
+                {
+                    $retry = $true
+                    Start-Sleep -Milliseconds (([Math]::Pow(2,$retryCount++) * 1000) + (Get-Random 1000))
+                }
+                else
+                {
+                    write-error ("Unknown Error: {0}" -f $_)
+                    throw $_
+                }
+            }
+        } while ($retry)
     }
     catch{
         write-warning ("Target Google Account does not Exist: {0}" -f $aRef)
@@ -103,19 +122,38 @@ foreach($permission in $desiredPermissions.GetEnumerator()) {
 
     if(-Not $currentPermissions.ContainsKey($permission.Name))
     {
-		$targetGroup = $null
+        $targetGroup = $null
         # Get Group from Google
         $splat = @{
             Body = @{
                 customer = "my_customer"
-                query = "Name={0}" -f $permission.Name
+                query    = "Email:{0}@*" -f $permission.Name
             }
-            URI = "https://www.googleapis.com/admin/directory/v1/groups"
-            Method = 'GET'
+            URI     = "https://www.googleapis.com/admin/directory/v1/groups"
+            Method  = 'GET'
             Headers = $authorization 
             Verbose = $False
             }
-        $groupResponse = Invoke-RestMethod @splat 
+        $retryCount = 0
+        do{
+            $retry = $false
+            try {
+                $groupResponse = Invoke-RestMethod @splat 
+            }
+            catch {
+                if ($_.ErrorDetails.Message -match "Quota exceeded" -AND $retryCount -lt 5)
+                {
+                    $retry = $true
+                    Start-Sleep -Milliseconds (([Math]::Pow(2,$retryCount++) * 1000) + (Get-Random 1000))
+                }
+                else
+                {
+                    write-error ("Unknown Error: {0}" -f $_)
+                    throw $_
+                }
+            }
+        } while ($retry)
+        
         if($groupResponse.groups)
         {
             $targetGroup = $groupResponse.groups[0]
@@ -124,37 +162,56 @@ foreach($permission in $desiredPermissions.GetEnumerator()) {
             write-warning ("Unable to find target group: {0}" -f $permission.Name)
             if($config.createDynamicGroups)
             {
-		        # Create the group, because it doesn't exist
-		        $newGroup = @{
-		            name = "{0}" -f $permission.Name
-		            email = "{0}@{1}" -f $permission.Name,$config.defaultDomain
-		            description = ""
-		        }
-		        if(-Not($dryRun -eq $True)){
-		            $splat = @{
-		                Body = $newGroup | ConvertTo-Json -Depth 10
-		                Uri = "https://www.googleapis.com/admin/directory/v1/groups" 
-		                Method = 'POST' 
-		                Headers = $authorization 
-		                Verbose = $False
-		                ErrorAction = 'Stop'
-		            }
-		            $targetGroup = Invoke-RestMethod @splat
-		            $permissionSuccess = $True
-		            Write-Information ("Created group {0} successfully." -f $permission.Name)
-		            $auditLogs.Add([PSCustomObject]@{
-		                Action = "GrantDynamicPermission"
-		                Message = "Created Group: {0}" -f $newGroup.email
-		                IsError = -Not $permissionSuccess
-		            })
-		        } else {
-		            Write-Information ("Dry run. Would have created group {0} during live run." -f $permission.Name)
-		        }
+                # Create the group, because it doesn't exist
+                $newGroup = @{
+                    name        = "{0}" -f $permission.Name
+                    email       = "{0}@{1}" -f $permission.Name,$config.defaultDomain
+                    description = ""
+                }
+                if(-Not($dryRun -eq $True)){
+                    $splat = @{
+                        Body        = $newGroup | ConvertTo-Json -Depth 10
+                        Uri         = "https://www.googleapis.com/admin/directory/v1/groups" 
+                        Method      = 'POST' 
+                        Headers     = $authorization 
+                        Verbose     = $False
+                        ErrorAction = 'Stop'
+                    }
+                    $retryCount = 0
+                    do{
+                        $retry = $false
+                        try {
+                            $targetGroup = Invoke-RestMethod @splat
+                        }
+                        catch {
+                            if ($_.ErrorDetails.Message -match "Quota exceeded" -AND $retryCount -lt 5)
+                            {
+                                $retry = $true
+                                Start-Sleep -Milliseconds (([Math]::Pow(2,$retryCount++) * 1000) + (Get-Random 1000))
+                            }
+                            else
+                            {
+                                write-error ("Unknown Error: {0}" -f $_)
+                                throw $_
+                            }
+                        }
+                    } while ($retry)
+                    
+                    $permissionSuccess = $True
+                    Write-Information ("Created group {0} successfully." -f $permission.Name)
+                    $auditLogs.Add([PSCustomObject]@{
+                        Action = "GrantDynamicPermission"
+                        Message = "Created Group: {0}" -f $newGroup.email
+                        IsError = -Not $permissionSuccess
+                    })
+                } else {
+                    Write-Information ("Dry run. Would have created group {0} during live run." -f $permission.Name)
+                }
             } else {
-				# Not creating missing Group
-	            $permissionSuccess = $False
-	            $success = $False
-	        }
+                # Not creating missing Group
+                $permissionSuccess = $False
+                $success = $False
+            }
         }
 
         # Add Permission to return list of Dynamic Permissions.  
@@ -162,11 +219,11 @@ foreach($permission in $desiredPermissions.GetEnumerator()) {
         $subPermissions.Add([PSCustomObject]@{
             DisplayName = $permission.Name
             Reference = [PSCustomObject]@{ Id = $targetGroup.id }
-    	})
+        })
         # Add user to Membership
         if(-Not($dryRun -eq $True) -AND $null -ne $targetGroup)
         {
-        	$membership = @{
+            $membership = @{
                 email = $userResponse[0].primaryEmail
                 role = "MEMBER"
             }
@@ -174,17 +231,35 @@ foreach($permission in $desiredPermissions.GetEnumerator()) {
             try
             {
                 $splat = @{
-                    Uri = "https://www.googleapis.com/admin/directory/v1/groups/{0}/members" -f $targetGroup.id
-                    Body = $membership | ConvertTo-Json
-                    Method = 'POST'
-                    Headers = $authorization
+                    Uri         = "https://www.googleapis.com/admin/directory/v1/groups/{0}/members" -f $targetGroup.id
+                    Body        = $membership | ConvertTo-Json
+                    Method      = 'POST'
+                    Headers     = $authorization
                     ErrorAction = 'Stop'
                 }
-                $response = Invoke-RestMethod @splat
+                $retryCount = 0
+                do{
+                    $retry = $false
+                    try {
+                        $response = Invoke-RestMethod @splat
+                    }
+                    catch {
+                        if ($_.ErrorDetails.Message -match "Quota exceeded" -AND $retryCount -lt 5)
+                        {
+                            $retry = $true
+                            Start-Sleep -Milliseconds (([Math]::Pow(2,$retryCount++) * 1000) + (Get-Random 1000))
+                        }
+                        else
+                        {
+                            write-error ("Unknown Error: {0}" -f $_)
+                            throw $_
+                        }
+                    }
+                } while ($retry)
                 $permissionSuccess = $True                
                 Write-Information ("Successfully Granted Permission to: {0}" -f $permission.Name)
             } catch {
-				Write-Information "Status Code: $($_.Exception.Response.StatusCode.value__)"
+                Write-Information "Status Code: $($_.Exception.Response.StatusCode.value__)"
                 Write-Information ($_ | ConvertFrom-Json).error.message;
                 if($_.Exception.Response.StatusCode.value__ -eq 409)
                 {
@@ -193,16 +268,16 @@ foreach($permission in $desiredPermissions.GetEnumerator()) {
                 }
                 else
                 {
-                	$success = $False
-                	$permissionSuccess = $False
-	                # Log error for further analysis.  Contact Tools4ever Support to further troubleshoot
-	                Write-Error ("Error Granting Permission for Group [{0}]:  {1}" -f $permission.Name, $_)
-	            }
+                    $success = $False
+                    $permissionSuccess = $False
+                    # Log error for further analysis.  Contact Tools4ever Support to further troubleshoot
+                    Write-Error ("Error Granting Permission for Group [{0}]:  {1}" -f $permission.Name, $_)
+                }
             }
         }
 
         $auditLogs.Add([PSCustomObject]@{
-            Action = "GrantPermission"
+            Action  = "GrantPermission"
             Message = "Granted access to group: {0}" -f $permission.Value
             IsError = -NOT $permissionSuccess
         })
@@ -220,12 +295,31 @@ foreach($permission in $currentPermissions.GetEnumerator()) {
             try
             {
                 $splat = @{
-                    Uri = "https://www.googleapis.com/admin/directory/v1/groups/{0}/members/{1}" -f $permission.Value,$aRef
-                    Method = 'DELETE' 
-                    Headers = $authorization
+                    Uri         = "https://www.googleapis.com/admin/directory/v1/groups/{0}/members/{1}" -f $permission.Value, $aRef
+                    Method      = 'DELETE' 
+                    Headers     = $authorization
                     ErrorAction = 'Stop'
                 }
-                $response = Invoke-RestMethod @splat
+                $retryCount = 0
+                do{
+                    $retry = $false
+                    try {
+                        $response = Invoke-RestMethod @splat
+                    }
+                    catch {
+                        if ($_.ErrorDetails.Message -match "Quota exceeded" -AND $retryCount -lt 5)
+                        {
+                            $retry = $true
+                            Start-Sleep -Milliseconds (([Math]::Pow(2,$retryCount++) * 1000) + (Get-Random 1000))
+                        }
+                        else
+                        {
+                            write-error ("Unknown Error: {0}" -f $_)
+                            throw $_
+                        }
+                    }
+                } while ($retry)
+                
                 $permissionSuccess = $True
             }
             catch
