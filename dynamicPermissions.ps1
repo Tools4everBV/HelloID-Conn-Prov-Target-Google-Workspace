@@ -22,7 +22,7 @@ $eRef = $entitlementContext | ConvertFrom-Json
 
 $currentPermissions = @{}
 foreach($permission in $eRef.CurrentPermissions) {
-    $currentPermissions[$permission.Reference.Id] = $permission.DisplayName
+    $currentPermissions[$permission.DisplayName] = $permission.Reference.Id
 }
 
 # Determine all the sub-permissions that needs to be Granted/Updated/Revoked
@@ -63,13 +63,14 @@ if ($o -ne "revoke")
     foreach($contract in $p.Contracts) {
         if(($contract.Context.InConditions) -OR ($dryRun -eq $True))
         {
+            # Note:  Generate Group Email (without the @<domain>).  Group Name lookup does not work well with Google.
             # <Group Prefix>.students.<grade>
             # P => PreK, 01-12 - Drop leading 0's
             if(-NOT [string]::IsNullOrWhiteSpace($contract.custom.GroupPrefix))
             {
                 $grade = $p.Custom.Grade -Replace '^0','' -Replace 'P','PreK'
-                $group_sAMAccountName = "{0}.students.{1}" -f $contract.Custom.GroupPrefix,$grade
-                $desiredPermissions[$group_sAMAccountName] = $group_sAMAccountName
+                $group_email = "{0}.students.{1}" -f $contract.Custom.GroupPrefix,$grade
+                $desiredPermissions[$group_email] = $group_email
             }    
         }
     }
@@ -108,7 +109,7 @@ foreach($permission in $desiredPermissions.GetEnumerator()) {
         $splat = @{
             Body = @{
                 customer = "my_customer"
-                query = "Name={0}" -f $permission.Name
+                query    = "Email:{0}@*" -f $permission.Name
             }
             URI = "https://www.googleapis.com/admin/directory/v1/groups"
             Method = 'GET'
