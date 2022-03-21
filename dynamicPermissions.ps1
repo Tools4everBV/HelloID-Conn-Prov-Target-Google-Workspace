@@ -123,39 +123,9 @@ foreach($permission in $desiredPermissions.GetEnumerator()) {
             $permissionSuccess = $True
         } else {
             write-warning ("Unable to find target group: {0}" -f $permission.Name)
-            if($config.createDynamicGroups)
-            {
-		        # Create the group, because it doesn't exist
-		        $newGroup = @{
-		            name = "{0}" -f $permission.Name
-		            email = "{0}@{1}" -f $permission.Name,$config.defaultDomain
-		            description = ""
-		        }
-		        if(-Not($dryRun -eq $True)){
-		            $splat = @{
-		                Body = $newGroup | ConvertTo-Json -Depth 10
-		                Uri = "https://www.googleapis.com/admin/directory/v1/groups" 
-		                Method = 'POST' 
-		                Headers = $authorization 
-		                Verbose = $False
-		                ErrorAction = 'Stop'
-		            }
-		            $targetGroup = Invoke-RestMethod @splat
-		            $permissionSuccess = $True
-		            Write-Information ("Created group {0} successfully." -f $permission.Name)
-		            $auditLogs.Add([PSCustomObject]@{
-		                Action = "GrantDynamicPermission"
-		                Message = "Created Group: {0}" -f $newGroup.email
-		                IsError = -Not $permissionSuccess
-		            })
-		        } else {
-		            Write-Information ("Dry run. Would have created group {0} during live run." -f $permission.Name)
-		        }
-            } else {
-				# Not creating missing Group
-	            $permissionSuccess = $False
-	            $success = $False
-	        }
+			$permissionSuccess = $False
+			$success = $False
+	        
         }
 
         # Add Permission to return list of Dynamic Permissions.  
