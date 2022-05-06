@@ -153,6 +153,15 @@ function Get-GoogleOuExists {
             title = "$($p.primaryContract.Title.name)"
             department = "$($p.primaryContract.Department.name)"
         })
+        # phones = @(@{
+        #     value = "$($p.contact.business.phone.mobile)"
+        #     type = 'mobile'
+        # })
+        # relations = @(@{
+        #     value = "$($p.primaryManager.email)"
+        #     type = 'manager'
+        # })
+        # includeInGlobalAddressList = $true
         orgUnitPath = $calcOrgUnitPath # Set after making sure calcOrgUnitPath exists, else defaultOU
     }
 #endregion Change mapping here

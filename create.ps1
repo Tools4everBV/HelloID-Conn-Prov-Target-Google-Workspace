@@ -175,6 +175,15 @@ function Get-CorrelationResult {
                             title = "$($p.primaryContract.Title.name)"
                             department = "$($p.primaryContract.Department.name)"
                         })
+        # phones = @(@{
+        #                     value = "$($p.contact.business.phone.mobile)"
+        #                     type = 'mobile'
+        #                 })
+        # relations = @(@{
+        #                     value = "$($p.primaryManager.email)"
+        #                     type = 'manager'
+        #                 })
+        # includeInGlobalAddressList = $false
     }
 #endregion Change mapping here
 

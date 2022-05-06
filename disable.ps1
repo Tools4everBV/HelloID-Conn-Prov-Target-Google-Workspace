@@ -105,7 +105,8 @@ function Get-GoogleOuExists {
     #Change mapping here
     $account = @{
         suspended = $True
-        orgUnitPath = $calcOrgUnitPath;
+        orgUnitPath = $calcOrgUnitPath
+        # includeInGlobalAddressList = $false
     }
 #endregion Change mapping here
 
