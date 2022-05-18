@@ -11,6 +11,12 @@
 </p>
 In this example we are going to connect to the Google Directory API (https://developers.google.com/admin-sdk/directory) using OAuth2.0 and the Powershell.
 
+## Versioning
+| Version | Description | Date |
+| - | - | - |
+| 1.1.0   | Updated dynamicPermissions script to support multiple groups | 2020/08/18  |
+| 1.0.0   | Initial release | 2020/08/18  |
+
 <!-- TABLE OF CONTENTS -->
 ## Table of Contents
 * [Getting Started](#getting-started)
