@@ -68,6 +68,7 @@ try{
         IsError = $true;
     });
     Write-Error -Verbose $_;
+	Write-Error $_.ErrorDetails.Message
 }
 #endregion Execute
 
