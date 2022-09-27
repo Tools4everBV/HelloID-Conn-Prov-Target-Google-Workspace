@@ -164,6 +164,7 @@ try{
         IsError = $true;
     });
     Write-Error $_
+	Write-Error $_.ErrorDetails.Message
 }
 #endregion Execute
 
