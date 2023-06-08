@@ -3,12 +3,11 @@
 | :information_source: Information |
 |:---------------------------|
 | This repository contains the connector and configuration code only. The implementer is responsible to acquire the connection details such as username, password, certificate, etc. You might even need to sign a contract or agreement with the supplier before implementing this connector. Please contact the client's application manager to coordinate the connector requirements.       |
-
 <br />
-
-<p align="center">
-  <img src="Assets/GoogleLogo.jpg">
+<p align="center"> 
+  <img src="https://www.tools4ever.nl/connector-logos/googleworkspace-logo.png">
 </p>
+<br />
 In this example we are going to connect to the Google Directory API (https://developers.google.com/admin-sdk/directory) using OAuth2.0 and the Powershell.
 
 <!-- TABLE OF CONTENTS -->
