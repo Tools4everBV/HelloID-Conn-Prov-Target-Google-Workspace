@@ -83,28 +83,15 @@ if(-Not($dryRun -eq $True)) {
         {
 			Write-Information "Applying Cloud Identity Group Permission"
 
-			$lookupParameters = @{
-				"memberKey.id" = $userResponse[0].primaryEmail
-			}
-			
-			$splat = @{
-                Uri = "https://cloudidentity.googleapis.com/v1/{parent=groups/$($pRef.Id)}/memberships:lookup"
-                Body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json))
-                Method = 'GET'
-                Headers = $authorization
-            }
-			
-			$lookup = Invoke-RestMethod @splat
-			
             $account = [PSCustomObject]@{
                     preferredMemberKey = @{ "id" = $userResponse[0].primaryEmail }
                     roles = @( @{ "name": "MEMBER"} )
                 }
 
             $splat = @{
-                Uri = "https://cloudidentity.googleapis.com/v1/$($lookup.name)/memberships"
+                Uri = "https://cloudidentity.googleapis.com/v1/{parent=groups/$($pRef.Id)}/memberships"
                 Body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json))
-                Method = 'DELETE'
+                Method = 'POST'
                 Headers = $authorization
             }
 
