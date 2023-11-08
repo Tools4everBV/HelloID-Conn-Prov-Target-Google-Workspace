@@ -37,6 +37,15 @@
       "required": true
     }
   },
+    {
+    "key": "customerId",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "Customer Id",
+      "required": false
+    }
+  },
   {
     "key": "defaultDomain",
     "type": "input",

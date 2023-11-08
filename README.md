@@ -54,7 +54,7 @@ By using this connector you will have the ability to create one of the following
 
 #Obtain Authorization Code
     $redirectUri = "http://localhost/oauth2callback"
-    $authUri = "https://accounts.google.com/o/oauth2/auth?client_id=$($ClientID)&scope=https://www.googleapis.com/auth/admin.directory.user https://www.googleapis.com/auth/admin.directory.group https://www.googleapis.com/auth/apps.licensing https://www.googleapis.com/auth/admin.directory.orgunit&response_type=code&redirect_uri=http://localhost/oauth2callback&access_type=offline&approval_prompt=force"
+    $authUri = "https://accounts.google.com/o/oauth2/auth?client_id=$($ClientID)&scope=https://www.googleapis.com/auth/admin.directory.user https://www.googleapis.com/auth/admin.directory.group https://www.googleapis.com/auth/apps.licensing https://www.googleapis.com/auth/admin.directory.orgunit https://www.googleapis.com/auth/cloud-identity.groups https://www.googleapis.com/auth/cloud-platform&response_type=code&redirect_uri=http://localhost/oauth2callback&access_type=offline&approval_prompt=force"
 
 #Listen for Authorization Code Request
 $HttpListener = New-Object System.Net.HttpListener

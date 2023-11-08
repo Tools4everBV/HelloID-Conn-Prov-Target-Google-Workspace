@@ -71,6 +71,44 @@ if(-Not($dryRun -eq $True)) {
                 IsError = $false;
             });
         }
+		elseif($pRef.Type -eq "CloudIdentityGroup")
+        {
+			Write-Information "Applying Cloud Identity Group Permission"
+
+			$lookupParameters = @{
+				"memberKey.id" = $userResponse[0].primaryEmail
+			}
+			
+			$splat = @{
+                Uri = "https://cloudidentity.googleapis.com/v1/{parent=groups/$($pRef.Id)}/memberships:lookup"
+                Body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json))
+                Method = 'GET'
+                Headers = $authorization
+            }
+			
+			$lookup = Invoke-RestMethod @splat
+			
+            $account = [PSCustomObject]@{
+                    preferredMemberKey = @{ "id" = $userResponse[0].primaryEmail }
+                    roles = @( @{ "name": "MEMBER"} )
+                }
+
+            $splat = @{
+                Uri = "https://cloudidentity.googleapis.com/v1/$($lookup.name)/memberships"
+                Body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json))
+                Method = 'DELETE'
+                Headers = $authorization
+            }
+
+            $response = Invoke-RestMethod @splat
+            $success = $True
+
+            $auditLogs.Add([PSCustomObject]@{
+                Action = "GrantMembership"
+                Message = "Membership for person $($p.DisplayName) added to $($pRef.DisplayName) successfully"
+                IsError = $false;
+            });
+		}
         elseif($pRef.Type -eq "License")
         {
             Write-Information "Revoking License Permission"

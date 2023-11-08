@@ -2,6 +2,7 @@
 #region Initialize default properties
 $config = ConvertFrom-Json $configuration
 $gsuiteGroups = [System.Collections.Generic.List[object]]::new()
+$useCloudIdentity = $false
 #endregion Initialize default properties
 
 #region Support Functions
@@ -30,48 +31,95 @@ function Get-GoogleAccessToken() {
 #endregion Support Functions
 
 #region Execute
-# Get Google Groups
-try {
-	#Add the authorization header to the request
-	$authorization = Get-GoogleAccessToken
+if($useCloudIdentity) {
+	# Get Cloud Identity Groups
+	try {
+		#Add the authorization header to the request
+		$authorization = Get-GoogleAccessToken
 
 
-	$parameters = @{
-		customer = "my_customer"
+		$parameters = @{
+			parent = "customers/$($config.customerId)"
+			view = "FULL"
+		}
+
+		do {
+			$splat = @{
+				Uri = "https://cloudidentity.googleapis.com/v1/groups"
+				Body = $parameters
+				Method = 'GET'
+				Headers = $authorization
+			}
+			$response = Invoke-RestMethod @splat
+			$parameters['pageToken'] = $response.nextPageToken;
+			$gsuiteGroups.AddRange($response.groups);
+		} while ($null -ne $parameters['pageToken'])
+	}catch{
+		Write-Error $_
 	}
 
-	do {
-		$splat = @{
-			Uri = "https://www.googleapis.com/admin/directory/v1/groups"
-			Body = $parameters
-			Method = 'GET'
-			Headers = $authorization
-		}
-		$response = Invoke-RestMethod @splat
-		$parameters['pageToken'] = $response.nextPageToken;
-		$gsuiteGroups.AddRange($response.groups);
-	} while ($null -ne $parameters['pageToken'])
-}catch{
-    Write-Error $_
-}
-
-Write-Information "Total Groups $($gsuiteGroups.count)";
-#endregion Execute
+	Write-Information "Total Cloud Identity Groups $($gsuiteGroups.count)";
+	#endregion Execute
 
 
-#region Build up result
-#Return Groups
-foreach($group in $gsuiteGroups)
-{
-	$row = @{
-		DisplayName = $group.name;
-		Identification = @{
-			Id = $group.id;
+	#region Build up result
+	#Return Groups
+	foreach($group in $gsuiteGroups)
+	{
+		$row = @{
 			DisplayName = $group.name;
-			Type = "Group";
+			Identification = @{
+				Id = $group.id;
+				DisplayName = $group.name;
+				Type = "CloudIdentityGroup";
+			}
+		};
+		Write-Output ($row | ConvertTo-Json -Depth 10)
+	}
+} else {
+	# Get Google Groups
+	try {
+		#Add the authorization header to the request
+		$authorization = Get-GoogleAccessToken
+
+
+		$parameters = @{
+			customer = "my_customer"
 		}
-	};
-	Write-Output ($row | ConvertTo-Json -Depth 10)
+
+		do {
+			$splat = @{
+				Uri = "https://www.googleapis.com/admin/directory/v1/groups"
+				Body = $parameters
+				Method = 'GET'
+				Headers = $authorization
+			}
+			$response = Invoke-RestMethod @splat
+			$parameters['pageToken'] = $response.nextPageToken;
+			$gsuiteGroups.AddRange($response.groups);
+		} while ($null -ne $parameters['pageToken'])
+	}catch{
+		Write-Error $_
+	}
+
+	Write-Information "Total Groups $($gsuiteGroups.count)";
+	#endregion Execute
+
+
+	#region Build up result
+	#Return Groups
+	foreach($group in $gsuiteGroups)
+	{
+		$row = @{
+			DisplayName = $group.name;
+			Identification = @{
+				Id = $group.id;
+				DisplayName = $group.name;
+				Type = "Group";
+			}
+		};
+		Write-Output ($row | ConvertTo-Json -Depth 10)
+	}
 }
 
 #Return Licensing
