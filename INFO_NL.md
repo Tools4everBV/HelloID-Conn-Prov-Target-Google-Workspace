@@ -1,5 +1,3 @@
-## Google Workspace Target Connector
-
 De Google Workspace Target Connector maakt het mogelijk Google Workspace - voorheen beschikbaar als Google G Suite - via de Identity & Access Management (IAM)-oplossing HelloID van Tools4ever aan diverse bronsystemen te koppelen. Met behulp van deze integratie verbeter je onder meer het beheer van toegangsrechten en gebruikersaccounts. De koppeling automatiseert deze processen in Google Workspace, waarbij gegevens uit je bronsysteem altijd leidend zijn. Niet alleen bespaar je zo tijd, ook stel je zeker dat je foutloos werkt. In dit artikel lees je meer over deze koppeling en de mogelijkheden.
 
 ## Wat is Google Workspace?
@@ -47,7 +45,7 @@ Een belangrijk voordeel van HelloID is dat je altijd aan de knoppen staat en de 
 
 Tools4ever ondersteunt je uiteraard bij het inrichten van de connector. Zo gaat dit altijd gepaard met een intake- en designsessie. Daarbij leggen we in een intake-document exact vast hoe een account moet worden aangemaakt. Ook bepalen we naamgevingsconventies, waarmee we specificeren hoe je een gebruikersnaam wilt opbouwen en wat HelloID moet doen indien deze gebruikersnaam niet beschikbaar is. 
 
-Google Workspace via HelloID koppelen met systemen
+## Google Workspace via HelloID koppelen met systemen
 
 HelloID maakt het integreren van diverse bronsystemen met Google Workspace mogelijk. De koppelingen tillen het beheer van gebruikers en autorisaties naar een hoger niveau. Enkele veelvoorkomende integraties zijn:
 
