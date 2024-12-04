@@ -1,0 +1,92 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., v1.0.0). Leave blank to use the latest version from CHANGELOG.md.'
+        required: false
+  pull_request:
+    types:
+      - closed
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Determine Version
+      id: determine_version
+      run: |
+        if [ -n "${{ github.event.inputs.version }}" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+          echo "Using provided version: $VERSION"
+        else
+          if [ -f CHANGELOG.md ]; then
+            # Extract the latest version heading from CHANGELOG.md
+            VERSION=$(grep -oP '^## \[\K[^]]+' CHANGELOG.md | head -n 1)
+            if [ -z "$VERSION" ]; then
+              echo "No versions found in CHANGELOG.md."
+              exit 1
+            fi
+            echo "Using latest version from CHANGELOG.md: $VERSION"
+          else
+            echo "CHANGELOG.md not found. Cannot determine version."
+            exit 1
+          fi
+        fi
+
+        # Prepend 'v' if not already present
+        if [[ "$VERSION" != v* ]]; then
+          VERSION="v$VERSION"
+        fi
+
+        echo "version=$VERSION" >> $GITHUB_ENV
+        echo "version_no_v=${VERSION#v}" >> $GITHUB_ENV
+
+    - name: Extract Release Notes from CHANGELOG.md
+      id: extract_notes
+      if: ${{ github.event.inputs.version == '' }} # Skip if a version is provided as input
+      run: |
+        if [ -f CHANGELOG.md ]; then
+          NOTES=$(awk '/## \['"${{ env.version_no_v }}"'\]/{flag=1; next} /## \[/{flag=0} flag' CHANGELOG.md)
+          if [ -z "$NOTES" ]; then
+            echo "No release notes found for version ${{ env.version_no_v }} in CHANGELOG.md."
+            exit 1
+          fi
+          echo "Release notes extracted."
+        else
+          echo "CHANGELOG.md not found in the repository."
+          exit 1
+        fi
+        echo "::set-output name=notes::$NOTES"
+
+    - name: Default Release Notes
+      id: default_notes
+      if: ${{ github.event.inputs.version != '' }} # Use default notes if a version is provided as input
+      run: |
+        echo "Release notes not provided; using default placeholder."
+        echo "::set-output name=notes::Release notes not provided for version ${{ env.version }}."
+
+    - name: Debug Release Notes
+      run: |
+        echo "Extracted Release Notes:"
+        echo "${{ steps.extract_notes.outputs.notes || steps.default_notes.outputs.notes }}"
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      with:
+        tag_name: ${{ env.version }}
+        release_name: ${{ env.version }}
+        body: ${{ steps.extract_notes.outputs.notes || steps.default_notes.outputs.notes }}
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
