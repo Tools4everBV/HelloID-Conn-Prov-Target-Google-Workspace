@@ -1,7 +1,7 @@
-##################################################
-# HelloID-Conn-Prov-Target-GoogleWorkSpace-Disable
+########################################################################
+# HelloID-Conn-Prov-Target-GoogleWorkSpace-Resources-organizationalUnits
 # PowerShell V2
-##################################################
+########################################################################
 
 # Enable TLS1.2
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
@@ -115,16 +115,13 @@ function Get-GoogleWSAccessToken {
 #endregion
 
 try {
-    # Verify if [aRef] has a value
-    if ([string]::IsNullOrEmpty($($actionContext.References.Account))) {
-        throw 'The account reference could not be found'
-    }
+    Write-Information "Creating [$($resourceContext.SourceData.Count)] resources"
 
     Write-Information 'Getting JWT token'
     $splatGetGoogleWSTokenParams = @{
         Issuer                 = $actionContext.Configuration.Issuer
         Subject                = $actionContext.Configuration.Subject
-        Scopes                 = @("https://www.googleapis.com/auth/admin.directory.user")
+        Scopes                 = @('https://www.googleapis.com/auth/admin.directory.orgunit')
         P12CertificateBase64   = $actionContext.Configuration.P12CertificateBase64
         P12CertificatePassword = $actionContext.Configuration.P12CertificatePassword
     }
@@ -134,91 +131,83 @@ try {
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
     $headers.Add('Authorization', "Bearer $($accessToken)")
 
-    Write-Information 'Verifying if a GoogleWS account exists'
-    try {
-        $splatGetUserParams = @{
-            Uri     = "https://www.googleapis.com/admin/directory/v1/users/$($actionContext.References.Account)"
+    Write-Information 'Retrieve existing GoogleWorkSpace organizational units'
+    $orgUnits = @()
+    $nextPageToken = $null
+
+    do {
+        $uri = "https://admin.googleapis.com/admin/directory/v1/customer/my_customer/orgunits?type=all"
+        if ($nextPageToken) {
+            $uri += "&pageToken=$nextPageToken"
+        }
+
+        $splatGetOrganizationalUnits = @{
+            Uri     = $uri
             Method  = 'GET'
             Headers = $headers
         }
-        $correlatedAccount = Invoke-RestMethod @splatGetUserParams
-    }
-    catch {
-        if ($_.Exception.Response.StatusCode -ne 404) {
-            throw $_
-        }
-    }
 
-    if ($null -ne $correlatedAccount) {
-        $action = 'DisableAccount'
-    } else {
-        $action = 'NotFound'
-    }
+        $response = Invoke-RestMethod @splatGetOrganizationalUnits
+        $orgUnits += $response.organizationUnits
+        $nextPageToken = $response.nextPageToken
+    } while ($nextPageToken)
+    Write-Information "Existing GoogleWS organizational units found [$($orgUnits.count)]"
 
-    # Process
-    switch ($action) {
-        'DisableAccount' {
-            $disableAccountObj = @{
-                suspended = $true
-                includeInGlobalAddressList = $false
-            }
+    foreach ($resource in $resourceContext.SourceData) {
+        try {
+            if (-not ($actionContext.DryRun -eq $True)) {
+                Write-Information "Create [$($resource)] GoogleWS resource"
+                $body = @{
+                    name              = $resource
+                    parentOrgUnitPath = "$($actionContext.Configuration.ParentOrgUnitPath)"
+                } | ConvertTo-Json -Depth 10
 
-            if (-not[string]::IsNullOrWhiteSpace($actionContext.Configuration.DisabledContainer)) {
-                $disableAccountObj | Add-Member -MemberType 'NoteProperty' -Name 'orgUnitPath' -Value $actionContext.Configuration.DisabledContainer
-            }
-
-            if (-not($actionContext.DryRun -eq $true)) {
-                Write-Information "Disabling GoogleWS account with accountReference: [$($actionContext.References.Account)]"
-                $splatDisableParams = @{
-                    Uri         = "https://www.googleapis.com/admin/directory/v1/users/$($actionContext.References.Account)"
-                    Method      = 'PUT'
-                    Body        = $disableAccountObj | ConvertTo-Json
-                    Headers     = $headers
-                    ContentType = 'application/json'
+                $splatCreateOrgUnit = @{
+                    Uri     = "https://admin.googleapis.com/admin/directory/v1/customer/my_customer/orgunits"
+                    Method  = 'POST'
+                    Headers = $headers
+                    Body    = $body
                 }
-                $null = Invoke-RestMethod @splatDisableParams
-                if ([string]::IsNullOrWhiteSpace($actionContext.Configuration.DisabledContainer)) {
-                    $auditLogMessage = "Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful"
-                } else {
-                    $auditLogMessage = "Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful. Account has been moved to OU:[$($actionContext.Configuration.DisabledContainer)]"
-                }
+                $null = Invoke-RestMethod @splatCreateOrgUnit
             } else {
-                if ([string]::IsNullOrWhiteSpace($actionContext.Configuration.DisabledContainer)){
-                    $auditLogMessage = "[DryRun] Disable GoogleWS account with accountReference: [$($actionContext.References.Account)], will be executed during enforcement"
-                } else{
-                    $auditLogMessage =  "[DryRun] Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] and move account to OU: [$($actionContext.Configuration.DisabledContainer)] will be executed during enforcement"
-                }
+                Write-Information "[DryRun] Create GoogleWS [$($resource)] resource, will be executed during enforcement"
             }
 
-            Write-Information $auditLogMessage
-            $outputContext.Success = $true
             $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = $auditLogMessage
+                    Message =  "Created GoogleWS organizational unit: [$($resource)]"
                     IsError = $false
                 })
-            break
-        }
-
-        'NotFound' {
-            Write-Information "GoogleWS account: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
-            $outputContext.Success = $true
+        } catch {
+            $outputContext.Success =$false
+            $ex = $PSItem
+            if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
+                $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
+                $errorObj = Resolve-GoogleWSError -ErrorObject $ex
+                $auditMessage = "Could not create GoogleWS resource. Error: $($errorObj.FriendlyMessage)"
+                Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
+            } else {
+                $auditMessage = "Could not create GoogleWS resource. Error: $($ex.Exception.Message)"
+                Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+            }
             $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = "GoogleWS account: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
-                    IsError = $false
-                })
-            break
+                Message = $auditMessage
+                IsError = $true
+            })
         }
+    }
+    if (-not ($outputContext.AuditLogs.IsError -contains $true)) {
+        $outputContext.Success = $true
     }
 } catch {
-    $outputContext.success = $false
+    $outputContext.Success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
-        $auditMessage = "Could not disable GoogleWS account. Error: $($errorObj.FriendlyMessage)"
+        $auditMessage = "Could not create GoogleWS resource. Error: $($errorObj.FriendlyMessage)"
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
     } else {
-        $auditMessage = "Could not disable GoogleWS account. Error: $($_.Exception.Message)"
+        $auditMessage = "Could not create GoogleWS resource. Error: $($ex.Exception.Message)"
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
     $outputContext.AuditLogs.Add([PSCustomObject]@{

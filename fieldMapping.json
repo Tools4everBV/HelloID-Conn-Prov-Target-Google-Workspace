@@ -1,0 +1,209 @@
+{
+  "Version": "v1",
+  "MappingFields": [
+    {
+      "Name": "FamilyName",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.Name.FamilyName\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "GivenName",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.Name.GivenName\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "PrimaryEmail",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Complex",
+          "Value": "\"// generateMailOption10.js [https://github.com/Tools4everBV/HelloID-Lib-Prov-HelperFunctions/blob/master/Javascript/Target/Mail/Scripts/generateMailOption10.js]\\r\\n//\\r\\n// Mapping logic to generate the Mail according to the following convention.\\r\\n// First choice\\t        B\\tjanine.van.den.boele@domain.local\\r\\n// \\t                    BP\\tjanine.van.den.boele@domain.local\\r\\n// \\t                    P\\tjanine.de.vries@domain.local\\r\\n// \\t                    PB  janine.de.vries@domain.local\\r\\n// If in use\\t        B\\tjanine.van.den.boele2@domain.local\\r\\n// \\t                    BP\\tjanine.van.den.boele2@domain.local\\r\\n// \\t                    P\\tjanine.de.vries2@domain.local\\r\\n// \\t                    PB  janine.de.vries2@domain.local\\r\\n// If also in use   \\tB\\tjanine.van.den.boele3@domain.local\\r\\n// \\t                    BP\\tjanine.van.den.boele3@domain.local\\r\\n// \\t                    P\\tjanine.de.vries3@domain.local\\r\\n// \\t                    PB  janine.de.vries3@domain.local\\r\\n// etc.\\r\\nfunction generateMail() {\\r\\n    const domain = 't4ecollege.com';\\r\\n\\r\\n    let nickName = Person.Name.NickName;\\r\\n    let middleName = Person.Name.FamilyNamePrefix;\\r\\n    let lastName = Person.Name.FamilyName;\\r\\n    let middleNamePartner = Person.Name.FamilyNamePartnerPrefix;\\r\\n    let lastNamePartner = Person.Name.FamilyNamePartner;\\r\\n    let convention = Person.Name.Convention;\\r\\n\\r\\n    let mailNickName = nickName + '.';\\r\\n\\r\\n    switch (convention) {\\r\\n        case \\\"P\\\":\\r\\n        case \\\"PB\\\":\\r\\n            if (typeof middleNamePartner !== 'undefined' && middleNamePartner) { mailNickName = mailNickName + middleNamePartner.replace(/ /g, '.') + '.' }\\r\\n            mailNickName = mailNickName + lastNamePartner;\\r\\n            break;\\r\\n        case \\\"B\\\":\\r\\n        case \\\"BP\\\":\\r\\n        default:\\r\\n            if (typeof middleName !== 'undefined' && middleName) { mailNickName = mailNickName + middleName.replace(/ /g, '.') + '.' }\\r\\n            mailNickName = mailNickName + lastName;\\r\\n            break;\\r\\n    }\\r\\n    // Trim spaces at start and end\\r\\n    mailNickName = mailNickName.trim();\\r\\n\\r\\n    // Convert to lower case\\r\\n    mailNickName = mailNickName.toLowerCase();\\r\\n\\r\\n    // Remove diacritical chars\\r\\n    mailNickName = deleteDiacriticalMarks(mailNickName);\\r\\n\\r\\n    // Remove blank chars and \\\"'\\\"\\r\\n    mailNickName = mailNickName.replace(/[^0-9a-zA-Z.\\\\-_]/g, '');\\r\\n\\r\\n    // Shorten string to maxAttributeLength minus iteration length\\r\\n    let suffix = ''\\r\\n    let iterationToUse = Iteration < 1 ? '' : (Iteration + 1)\\r\\n    suffix = Iteration === 0 ? '' : (iterationToUse);\\r\\n    const maxAttributeLength = (256 - suffix.toString().length - domain.toString().length);\\r\\n    mailNickName = mailNickName.substring(0, maxAttributeLength);\\r\\n\\r\\n    // Use the iterator if needed\\r\\n    mailNickName = mailNickName + suffix;\\r\\n\\r\\n    return mailNickName + '@' + domain;\\r\\n}\\r\\n\\r\\ngenerateMail();\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": true
+        }
+      ]
+    },
+    {
+      "Name": "ExternalID",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.ExternalId\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "Title",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.PrimaryContract.Title.Name\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "Department",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.PrimaryContract.Department.DisplayName\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "MobilePhone",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.Contact.Business.Phone.Mobile\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "IncludeInGlobalAddressList",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Fixed",
+          "Value": "\"true\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "Password",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create"
+          ],
+          "MappingMode": "Complex",
+          "Value": "\"// generatePasswordOption1.js [https://github.com/Tools4everBV/HelloID-Lib-Prov-HelperFunctions/blob/master/Javascript/Target/Password/Scripts/generatePasswordOption1.js]\\n//\\n// Helper function to shuffle an array\\nfunction randomizeCharSequence(passwordObject) {\\n    for (let j, x, i = passwordObject.length; i; j = Math.floor(Math.random() * i), x = passwordObject[--i], passwordObject[i] = passwordObject[j], passwordObject[j] = x);\\n    return passwordObject;\\n}\\n\\nfunction generatePassword() {\\n    // Initialize these variables for the algorithm to meet your password complexity rules\\n    const passwordLength = 8;\\n    const minUpper = 1;\\n    const maxUpper = 3;\\n    const minNumeric = 0;\\n    const maxNumeric = 2;\\n    const minSpecial = 1;\\n    const maxSpecial = 1;\\n\\n    // Character sets\\n    const upperChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';\\n    const lowerChars = 'abcdefghijklmnopqrstuvwxyz';\\n    const numberChars = '0123456789';\\n    const specialChars = '!#$@*?';\\n\\n    // Do not change any code below this line !!!\\n\\n    // Helper function to get a random character from a set\\n    const getRandomValue = (values) => values.charAt(Math.floor(Math.random() * values.length));\\n\\n    // Generate individual character groups\\n    const numberUpper = Math.floor(Math.random() * (maxUpper - minUpper + 1)) + minUpper;\\n    const numberNumeric = Math.floor(Math.random() * (maxNumeric - minNumeric + 1)) + minNumeric;\\n    const numberSpecial = Math.floor(Math.random() * (maxSpecial - minSpecial + 1)) + minSpecial;\\n    const numberLower = passwordLength - (numberUpper + numberNumeric + numberSpecial);\\n\\n    const numericGroup = Array.from({ length: numberNumeric }, () => getRandomValue(numberChars));\\n    const upperGroup = Array.from({ length: numberUpper }, () => getRandomValue(upperChars));\\n    const specialGroup = Array.from({ length: numberSpecial }, () => getRandomValue(specialChars));\\n    const lowerGroup = Array.from({ length: numberLower }, () => getRandomValue(lowerChars));\\n\\n    // Combine all groups and shuffle the order\\n    const password = randomizeCharSequence([...numericGroup, ...upperGroup, ...specialGroup, ...lowerGroup]);\\n\\n    return password.join('');\\n}\\n\\ngeneratePassword();\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "Manager",
+      "Description": "The email of the manager",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.PrimaryManager.Email\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "WorkPhone",
+      "Description": "",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Field",
+          "Value": "\"Person.Contact.Business.Phone.Fixed\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    },
+    {
+      "Name": "Container",
+      "Description": "The organizational unit that the updated account will reside in",
+      "Type": "Text",
+      "MappingActions": [
+        {
+          "MapForActions": [
+            "Create",
+            "Update"
+          ],
+          "MappingMode": "Complex",
+          "Value": "\"function getValue() {\\n    let container = '/' + Person.PrimaryContract.Department.DisplayName    \\n    return container\\n}\\n\\ngetValue();\"",
+          "UsedInNotifications": false,
+          "StoreInAccountData": false
+        }
+      ]
+    }
+  ],
+  "UniqueFieldNames": []
+}

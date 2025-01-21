@@ -1,185 +1,229 @@
-#region Initialize default properties
-$config = ConvertFrom-Json $configuration
-$p = $person | ConvertFrom-Json
-$pp = $previousPerson | ConvertFrom-Json
-$pd = $personDifferences | ConvertFrom-Json
-$m = $manager | ConvertFrom-Json
-$aRef = $accountReference | ConvertFrom-Json;
+#################################################
+# HelloID-Conn-Prov-Target-GoogleWorkSpace-Enable
+# PowerShell V2
+#################################################
 
-$success = $False
-$auditLogs = [Collections.Generic.List[PSCustomObject]]@()
-#endregion Initialize default properties
+# Enable TLS1.2
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
 
-#region Support Functions
-function Get-GoogleAccessToken() {
-    ### exchange the refresh token for an access token
-    $requestUri = "https://www.googleapis.com/oauth2/v4/token"
-
-    $refreshTokenParams = @{
-            client_id=$config.clientId;
-            client_secret=$config.clientSecret;
-            redirect_uri=$config.redirectUri;
-            refresh_token=$config.refreshToken;
-            grant_type="refresh_token"; # Fixed value
-    };
-    $response = Invoke-RestMethod -Method Post -Uri $requestUri -Body $refreshTokenParams -Verbose:$false
-    $accessToken = $response.access_token
-
-    #Add the authorization header to the request
-    $authorization = [ordered]@{
-        Authorization = "Bearer $accesstoken";
-        'Content-Type' = "application/json; charset=utf-8";
-        Accept = "application/json";
-    }
-    $authorization
-}
-
-function Get-GoogleOuExists {
+#region functions
+function Resolve-GoogleWSError {
+    [CmdletBinding()]
     param (
         [Parameter(Mandatory)]
-        [string]$orgUnitPath,
-        [bool]$createOuIfNotExists = $false,
-		[Parameter(Mandatory)]
-        $authorization
+        [object]
+        $ErrorObject
     )
-	$googleOuExists = $false
-	
-	$splat = @{
-		Uri = ("https://www.googleapis.com/admin/directory/v1/customer/my_customer/orgunits{0}" -f $orgUnitPath)
-		Method = 'GET'
-		Headers = $authorization
-		Verbose = $False
-		ErrorAction = 'Stop'
-	}
-	#  API will error if target OU does not exist.
-	try {
-		$response = Invoke-RestMethod @splat
-		Write-Information ("Get-GoogleOuExists: Target OU {0} exists." -f $orgUnitPath)
-		
-		$googleOuExists = $true
-	} catch {
-		if ($createOuIfNotExists -eq $true) {
-			# Create the target OU
-			try {
-				$leafOU = $orgUnitPath.split("/")[-1]
-				$parentOU = $orgUnitPath.replace("/$leafOu","")
-				
-				$splat = @{
-					Uri = "https://www.googleapis.com/admin/directory/v1/customer/my_customer/orgunits"
-					Method = 'POST'
-					Headers = $authorization
-					Verbose = $true
-					ErrorAction = 'Stop'
-					Body = "{
-						'name':'$leafOU',
-						'parentOrgUnitPath': '$parentOU'
-						}"
-				}
-				$response = Invoke-RestMethod @splat
-
-				Write-Information ("Get-GoogleOuExists: Created organizational unit {0}." -f $orgUnitPath)
-				$googleOuExists = $true
-			} catch {
-				Write-Information ("Get-GoogleOuExists: Failed to create organizational unit {0}. Verify parent path exists." -f $orgUnitPath)
-				Write-Error $_
-			}
-		} else {
-			Write-Information ("Get-GoogleOuExists: Target OU {0} does not exist." -f $orgUnitPath)
-		}
-	}
-	
-	return $googleOuExists
-}
-#endregion Support Functions
-
-#region Change mapping here
-    $defaultOrgUnitPath = "/Employees"
-
-    #Target OrgUnitPath
-    $calcOrgUnitPath = ("{0}/{1}" -f
-        $defaultOrgUnitPath,
-        $p.PrimaryContract.Department.ExternalID
-        )
-    Write-Information ("Target OU: {0}" -f $calcOrgUnitPath)
-
-    #Change mapping here
-    $account = @{
-        suspended = $False
-        orgUnitPath = $calcOrgUnitPath
-        # includeInGlobalAddressList = $True
+    process {
+        $httpErrorObj = [PSCustomObject]@{
+            ScriptLineNumber = $ErrorObject.InvocationInfo.ScriptLineNumber
+            Line             = $ErrorObject.InvocationInfo.Line
+            ErrorDetails     = $ErrorObject.Exception.Message
+            FriendlyMessage  = $ErrorObject.Exception.Message
+        }
+        if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
+            $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
+        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+            if ($null -ne $ErrorObject.Exception.Response) {
+                $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
+                if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
+                    $httpErrorObj.ErrorDetails = $streamReaderResponse
+                }
+            }
+        }
+        try {
+            $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
+            if (-NOT([String]::IsNullOrEmpty(($errorDetailsObject.error | Select-Object -First 1).message))) {
+                $httpErrorObj.FriendlyMessage = $errorDetailsObject.error.message -join ', '
+            } else {
+                $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
+            }
+        } catch {
+            $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
+        }
+        Write-Output $httpErrorObj
     }
-#endregion Change mapping here
+}
 
-#region Execute
-try{
-    #Add the authorization header to the request
-    $authorization = Get-GoogleAccessToken
+function Get-GoogleWSAccessToken {
+    [CmdletBinding()]
+    param (
+        [Parameter()]
+        [string]
+        $Issuer,
 
-    # Verify Target OU Exists.  Else, use Default OU
-    $targetOuExists = Get-GoogleOuExists -orgUnitPath $calcOrgUnitPath -createOuIfNotExists $false -authorization $authorization 
+        [Parameter()]
+        [string]
+        $Subject,
 
-    if ($targetOuExists -eq $true) {
-        $account.orgUnitPath = $calcOrgUnitPath
+        [Parameter()]
+        [string[]]$Scopes,
+
+        [Parameter()]
+        [string]
+        $P12CertificateBase64,
+
+        [Parameter()]
+        [string]
+        $P12CertificatePassword
+    )
+
+    try {
+        $now = [math]::Round(((Get-Date).ToUniversalTime() - ([datetime]"1970-01-01T00:00:00Z").ToUniversalTime()).TotalSeconds)
+        $jwtHeader = @{
+            alg = 'RS256'
+            typ = 'JWT'
+        } | ConvertTo-Json
+        $jwtBase64Header = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($jwtHeader))
+
+        $jwtPayload = [Ordered]@{
+            iss   = $Issuer
+            sub   = $Subject
+            scope = $($Scopes -join " ")
+            aud   = "https://www.googleapis.com/oauth2/v4/token"
+            exp   = $now + 3600
+            iat   = $now
+        } | ConvertTo-Json
+        $jwtBase64Payload = [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($jwtPayload))
+
+        $rawP12Certificate = [system.convert]::FromBase64String($P12CertificateBase64)
+        $p12Certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($rawP12Certificate, $P12CertificatePassword, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
+        $rsaPrivate = $P12Certificate.PrivateKey
+        $rsa = [System.Security.Cryptography.RSACryptoServiceProvider]::new()
+        $rsa.ImportParameters($rsaPrivate.ExportParameters($true))
+        $signatureInput = "$jwtBase64Header.$jwtBase64Payload"
+        $signature = $rsa.SignData([Text.Encoding]::UTF8.GetBytes($signatureInput), "SHA256")
+        $base64Signature = [System.Convert]::ToBase64String($signature)
+        $jwtToken = "$signatureInput.$base64Signature"
+
+        $splatParams = @{
+            Uri         = 'https://www.googleapis.com/oauth2/v4/token'
+            Method      = 'POST'
+            Body        = @{
+                grant_type = 'urn:ietf:params:oauth:grant-type:jwt-bearer'
+                assertion  = $jwtToken
+            }
+            ContentType = 'application/x-www-form-urlencoded'
+        }
+        $response = Invoke-RestMethod @splatParams
+        $response.access_token
+    }
+    catch {
+        $PSCmdlet.ThrowTerminatingError($_)
+    }
+}
+#endregion
+
+try {
+    # Verify if [aRef] has a value
+    if ([string]::IsNullOrEmpty($($actionContext.References.Account))) {
+        throw 'The account reference could not be found'
+    }
+
+    Write-Information 'Getting JWT token'
+    $splatGetGoogleWSTokenParams = @{
+        Issuer                 = $actionContext.Configuration.Issuer
+        Subject                = $actionContext.Configuration.Subject
+        Scopes                 = @("https://www.googleapis.com/auth/admin.directory.user")
+        P12CertificateBase64   = $actionContext.Configuration.P12CertificateBase64
+        P12CertificatePassword = $actionContext.Configuration.P12CertificatePassword
+    }
+    $accessToken = Get-GoogleWSAccessToken @splatGetGoogleWSTokenParams
+
+    Write-Information 'Setting authentication headers'
+    $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
+    $headers.Add('Authorization', "Bearer $($accessToken)")
+
+    Write-Information 'Verifying if a GoogleWS account exists'
+    try {
+        $splatGetUserParams = @{
+            Uri     = "https://www.googleapis.com/admin/directory/v1/users/$($actionContext.References.Account)"
+            Method  = 'GET'
+            Headers = $headers
+        }
+        $correlatedAccount = Invoke-RestMethod @splatGetUserParams
+    }
+    catch {
+        if ($_.Exception.Response.StatusCode -ne 404) {
+            throw $_
+        }
+    }
+
+    if ($null -ne $correlatedAccount) {
+        $action = 'EnableAccount'
     } else {
-        Write-Information ("Target OU Not found.  Using Default OU: {0}" -f $defaultOrgUnitPath)
-        $account.orgUnitPath = $defaultOrgUnitPath
+        $action = 'NotFound'
     }
 
-    #Send User Update
-    if(-Not($dryRun -eq $True)) {
-        # Get Previous Account
-        $splat = @{
-            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)"
-            Method = 'GET'
-            Headers = $authorization
-            Verbose = $False
+    # Process
+    switch ($action) {
+        'EnableAccount' {
+            $enableAccountObj = @{
+                suspended = $false
+                includeInGlobalAddressList = $true
+            }
+
+            if (-not[string]::IsNullOrWhiteSpace($actionContext.Configuration.EnabledContainer)) {
+                $enableAccountObj | Add-Member -MemberType 'NoteProperty' -Name 'orgUnitPath' -Value $actionContext.Configuration.EnabledContainer
+            }
+
+            if (-not($actionContext.DryRun -eq $true)) {
+                Write-Information "Enabling GoogleWS account with accountReference: [$($actionContext.References.Account)]"
+                $splatEnableParams = @{
+                    Uri         = "https://www.googleapis.com/admin/directory/v1/users/$($actionContext.References.Account)"
+                    Method      = 'PUT'
+                    Body        = $enableAccountObj | ConvertTo-Json
+                    Headers     = $headers
+                    ContentType = 'application/json'
+                }
+                $null = Invoke-RestMethod @splatEnableParams
+                if ([string]::IsNullOrWhiteSpace($actionContext.Configuration.EnabledContainer)) {
+                    $auditLogMessage = "Enable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful"
+                } else {
+                    $auditLogMessage = "Enable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful. Account has been moved to OU: [$($actionContext.Configuration.EnabledContainer)]"
+                }
+            } else {
+                if ([string]::IsNullOrWhiteSpace($actionContext.Configuration.EnabledContainer)){
+                    $auditLogMessage = "[DryRun] Enable GoogleWS account with accountReference: [$($actionContext.References.Account)], will be executed during enforcement"
+                } else{
+                    $auditLogMessage = "[DryRun] Enable GoogleWS account with accountReference: [$($actionContext.References.Account)] and move account to OU: [$($actionContext.Configuration.EnabledContainer)] will be executed during enforcement"
+                }
+            }
+
+            Write-Information $auditLogMessage
+            $outputContext.Success = $true
+            $outputContext.AuditLogs.Add([PSCustomObject]@{
+                    Message = $auditLogMessage
+                    IsError = $false
+                })
+            break
         }
-        $previousAccount = Invoke-RestMethod @splat
 
-        $splat = @{
-            body = [System.Text.Encoding]::UTF8.GetBytes(($account | ConvertTo-Json -Depth 10))
-            Uri = "https://www.googleapis.com/admin/directory/v1/users/$($aRef)"
-            Method = 'PUT'
-            Headers = $authorization
-            Verbose = $False
+        'NotFound' {
+            Write-Information "GoogleWS account: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
+            $outputContext.Success = $false
+            $outputContext.AuditLogs.Add([PSCustomObject]@{
+                    Message = "GoogleWS account: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
+                    IsError = $true
+                })
+            break
         }
-        $updatedAccount = Invoke-RestMethod @splat
-        #Write-Information ("Response: {0}" -f ($response | ConvertTo-Json -Depth 50))
-
-        $auditLogs.Add([PSCustomObject]@{
-            Action = "EnableAccount"
-            Message = "Enabled/Updated account with PrimaryEmail $($updatedAccount.primaryEmail) in OrgUnit [$($updatedAccount.orgUnitPath)]"
-            IsError = $false;
-        });
-    }
-    else {
-        $updatedAccount = $account;
     }
 
-    $success = $True
-}catch{
-    $auditLogs.Add([PSCustomObject]@{
-        Action = "EnableAccount"
-        Message = "Error enabling/updating account with PrimaryEmail $($previousAccount.primaryEmail) - Error: $($_)"
-        IsError = $true;
-    });
-    Write-Error $_
-	Write-Error $_.ErrorDetails.Message
+} catch {
+    $outputContext.success = $false
+    $ex = $PSItem
+    if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
+        $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
+        $errorObj = Resolve-GoogleWSError -ErrorObject $ex
+        $auditMessage = "Could not enable GoogleWS account. Error: $($errorObj.FriendlyMessage)"
+        Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
+    } else {
+        $auditMessage = "Could not enable GoogleWS account. Error: $($_.Exception.Message)"
+        Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+    }
+    $outputContext.AuditLogs.Add([PSCustomObject]@{
+        Message = $auditMessage
+        IsError = $true
+    })
 }
-#endregion Execute
-
-#region Build up result
-$result = [PSCustomObject]@{
-	Success = $success
-	AccountReference = $aRef
-	AuditLogs = $auditLogs;
-	Account = $updatedAccount
-	PreviousAccount = $previousAccount
-
-    ExportData = [PSCustomObject]@{
-        OrgUnitPath = $updatedAccount.orgUnitPath
-    }
-}
-
-Write-Output ($result | ConvertTo-Json -Depth 10)
-#endregion Build up result
