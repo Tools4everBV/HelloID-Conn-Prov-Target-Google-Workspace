@@ -1,76 +1,113 @@
 [
   {
-    "key": "clientId",
+    "key": "Issuer",
     "type": "input",
     "defaultValue": "",
     "templateOptions": {
-      "label": "Client ID",
+      "label": "Issuer",
+      "description": "The client ID used to generate the token. Typically this is the  service account ID used for authentication.",
       "required": true
     }
   },
   {
-    "key": "clientSecret",
+    "key": "Subject",
     "type": "input",
     "defaultValue": "",
     "templateOptions": {
-      "label": "Client Secret",
+      "label": "Subject",
+      "description": "The user or service account on whose behalf the token is issued. Typically represents the admin account that has been authorized to perform actions on behalf of users or manage the Google Workspace domain.",
+      "required": true
+    }
+  },
+  {
+    "key": "P12CertificateBase64",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "P12CertificateBase64",
+      "description": "The Base64 encoded version of the P12 (PKCS #12) certificate. Refer to the readme for more information.",
+      "required": true
+    }
+  },
+  {
+    "key": "P12CertificatePassword",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
       "type": "password",
+      "label": "P12CertificatePassword",
+      "description": "The password used to protect the private key stored within the P12 (PKCS #12) certificate.",
       "required": true
     }
   },
   {
-    "key": "redirectUri",
-    "type": "input",
-    "defaultValue": "http://localhost/oauth2callback",
-    "templateOptions": {
-      "label": "Redirect URI",
-      "required": true
-    }
-  },
-  {
-    "key": "refreshToken",
+    "key": "InitialContainer",
     "type": "input",
     "defaultValue": "",
     "templateOptions": {
-      "label": "Refresh Token",
-      "type": "password",
-      "required": true
+      "label": "InitialContainer",
+      "description": "The Organizational Unit in which accounts should be created. When not specified the value is determined by the fieldMapping.",
+      "required": false
     }
   },
   {
-    "key": "defaultDomain",
+    "key": "EnabledContainer",
     "type": "input",
-    "defaultValue": "MyDomain.com",
+    "defaultValue": "",
     "templateOptions": {
-      "label": "Default Domain",
-      "required": true
+      "label": "EnabledContainer",
+      "description": "The Organizational Unit to which accounts should be moved when enabled. When not specified the value is determined by the fieldMapping.",
+      "required": false
     }
   },
   {
-    "key": "correlationEnabled",
+    "key": "DisabledContainer",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "DisabledContainer",
+      "description": "The Organizational Unit to which accounts should be moved when disabled. When not specified the value is determined by the fieldMapping.",
+      "required": false
+    }
+  },
+  {
+    "key": "MoveAccountOnUpdate",
     "type": "checkbox",
-    "defaultValue": true,
+    "defaultValue": "false",
     "templateOptions": {
-      "label": "Enable Correlation",
-      "required": true
+      "label": "MoveAccountOnUpdate",
+      "description": "Move account to a different container when the account update action is performed. The container is determined by the fieldMapping.",
+      "required": false
     }
   },
   {
-    "key": "correlationPersonField",
-    "type": "input",
-    "defaultValue": "ExternalId",
+    "key": "SetPrimaryManagerOnCreate",
+    "type": "checkbox",
+    "defaultValue": "false",
     "templateOptions": {
-      "label": "Person Correlation Field",
-      "required": true
+      "label": "SetPrimaryManagerOnCreate",
+      "description": "Set primary manager when an account is created.",
+      "required": false
     }
   },
   {
-    "key": "correlationAccountField",
+    "key": "DefaultDomain",
     "type": "input",
-    "defaultValue": "ExternalId",
+    "defaultValue": "",
     "templateOptions": {
-      "label": "Account Correlation Field",
-      "required": true
+      "label": "DefaultDomain",
+      "description": "The primary domain that is automatically assigned when you set up a Google Workspace environment.",
+      "required": false
+    }
+  },
+  {
+    "key": "ParentOrgUnitPath",
+    "type": "input",
+    "defaultValue": "/",
+    "templateOptions": {
+      "label": "ParentOrgUnitPath",
+      "description": "The organizational unit path under which new organizational units will be created. Use '/' for top-level OUs or specify an existing path (e.g., '/ParentContainer').",
+      "required": false
     }
   }
 ]

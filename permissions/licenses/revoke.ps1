@@ -1,7 +1,7 @@
-##################################################
-# HelloID-Conn-Prov-Target-GoogleWorkSpace-Disable
+######################################################################
+# HelloID-Conn-Prov-Target-GoogleWorkSpace-Permissions-Licenses-Revoke
 # PowerShell V2
-##################################################
+######################################################################
 
 # Enable TLS1.2
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
@@ -114,17 +114,18 @@ function Get-GoogleWSAccessToken {
 }
 #endregion
 
+# Begin
 try {
     # Verify if [aRef] has a value
     if ([string]::IsNullOrEmpty($($actionContext.References.Account))) {
         throw 'The account reference could not be found'
     }
 
-    Write-Information 'Getting JWT token'
+    Write-Information "Getting JWT token for scope(s): $scopes"
     $splatGetGoogleWSTokenParams = @{
         Issuer                 = $actionContext.Configuration.Issuer
         Subject                = $actionContext.Configuration.Subject
-        Scopes                 = @("https://www.googleapis.com/auth/admin.directory.user")
+        Scopes                 = @('https://www.googleapis.com/auth/apps.licensing', 'https://www.googleapis.com/auth/admin.directory.user')
         P12CertificateBase64   = $actionContext.Configuration.P12CertificateBase64
         P12CertificatePassword = $actionContext.Configuration.P12CertificatePassword
     }
@@ -132,6 +133,7 @@ try {
 
     Write-Information 'Setting authentication headers'
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
+    $headers.Add('Content-Type', 'application/x-www-form-urlencoded')
     $headers.Add('Authorization', "Bearer $($accessToken)")
 
     Write-Information 'Verifying if a GoogleWS account exists'
@@ -150,61 +152,39 @@ try {
     }
 
     if ($null -ne $correlatedAccount) {
-        $action = 'DisableAccount'
+        $action = 'RevokePermission'
     } else {
         $action = 'NotFound'
     }
 
     # Process
     switch ($action) {
-        'DisableAccount' {
-            $disableAccountObj = @{
-                suspended = $true
-                includeInGlobalAddressList = $false
-            }
-
-            if (-not[string]::IsNullOrWhiteSpace($actionContext.Configuration.DisabledContainer)) {
-                $disableAccountObj | Add-Member -MemberType 'NoteProperty' -Name 'orgUnitPath' -Value $actionContext.Configuration.DisabledContainer
-            }
-
+        'RevokePermission' {
             if (-not($actionContext.DryRun -eq $true)) {
-                Write-Information "Disabling GoogleWS account with accountReference: [$($actionContext.References.Account)]"
-                $splatDisableParams = @{
-                    Uri         = "https://www.googleapis.com/admin/directory/v1/users/$($actionContext.References.Account)"
-                    Method      = 'PUT'
-                    Body        = $disableAccountObj | ConvertTo-Json
+                Write-Information "Revoking GoogleWS permission license: [$($actionContext.References.Permission.DisplayName)] - [$($actionContext.References.Permission.Reference)]"
+                $splatRemoveLicenseParams = @{
+                    Uri         = "https://www.googleapis.com/apps/licensing/v1/product/Google-Apps/sku/$($actionContext.References.Permission.Reference)/user/$($actionContext.References.Account)"
+                    Method      = 'DELETE'
                     Headers     = $headers
-                    ContentType = 'application/json'
                 }
-                $null = Invoke-RestMethod @splatDisableParams
-                if ([string]::IsNullOrWhiteSpace($actionContext.Configuration.DisabledContainer)) {
-                    $auditLogMessage = "Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful"
-                } else {
-                    $auditLogMessage = "Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful. Account has been moved to OU:[$($actionContext.Configuration.DisabledContainer)]"
-                }
+                $null = Invoke-RestMethod @splatRemoveLicenseParams
             } else {
-                if ([string]::IsNullOrWhiteSpace($actionContext.Configuration.DisabledContainer)){
-                    $auditLogMessage = "[DryRun] Disable GoogleWS account with accountReference: [$($actionContext.References.Account)], will be executed during enforcement"
-                } else{
-                    $auditLogMessage =  "[DryRun] Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] and move account to OU: [$($actionContext.Configuration.DisabledContainer)] will be executed during enforcement"
-                }
+                Write-Information "[DryRun] Revoke GoogleWS permission license: [$($actionContext.References.Permission.DisplayName)] - [$($actionContext.References.Permission.Reference)], will be executed during enforcement"
             }
 
-            Write-Information $auditLogMessage
             $outputContext.Success = $true
             $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = $auditLogMessage
+                    Message = "Revoke permission license [$($actionContext.References.Permission.DisplayName)] was successful"
                     IsError = $false
                 })
-            break
         }
 
         'NotFound' {
             Write-Information "GoogleWS account: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
-            $outputContext.Success = $true
+            $outputContext.Success  = $false
             $outputContext.AuditLogs.Add([PSCustomObject]@{
                     Message = "GoogleWS account: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
-                    IsError = $false
+                    IsError = $true
                 })
             break
         }
@@ -215,14 +195,14 @@ try {
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
-        $auditMessage = "Could not disable GoogleWS account. Error: $($errorObj.FriendlyMessage)"
+        $auditMessage = "Could not revoke GoogleWS permission license. Error: $($errorObj.FriendlyMessage)"
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
     } else {
-        $auditMessage = "Could not disable GoogleWS account. Error: $($_.Exception.Message)"
+        $auditMessage = "Could not revoke GoogleWS permission license. Error: $($_.Exception.Message)"
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
     $outputContext.AuditLogs.Add([PSCustomObject]@{
-        Message = $auditMessage
-        IsError = $true
-    })
+            Message = $auditMessage
+            IsError = $true
+        })
 }
