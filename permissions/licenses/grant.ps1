@@ -161,7 +161,7 @@ try {
     switch ($action) {
         'GrantPermission' {
             if (-not($actionContext.DryRun -eq $true)) {
-                Write-Information "Granting GoogleWS permission license: [$($actionContext.References.Permission.DisplayName)] - [$($actionContext.References.Permission.Reference)]"
+                Write-Information "Granting GoogleWS permission license: [$($actionContext.PermissionDisplayName)] - [$($actionContext.References.Permission.Reference)]"
                 $splatAddLicenseParams = @{
                     Uri         = "https://www.googleapis.com/apps/licensing/v1/product/Google-Apps/sku/$($actionContext.References.Permission.Reference)/user"
                     Method      = 'POST'
@@ -173,12 +173,12 @@ try {
                 }
                 $null = Invoke-RestMethod @splatAddLicenseParams
             } else {
-                Write-Information "[DryRun] Grant GoogleWS permission license: [$($actionContext.References.Permission.DisplayName)] - [$($actionContext.References.Permission.Reference)], will be executed during enforcement"
+                Write-Information "[DryRun] Grant GoogleWS permission license: [$($actionContext.PermissionDisplayName)] - [$($actionContext.References.Permission.Reference)], will be executed during enforcement"
             }
 
             $outputContext.Success = $true
             $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = "Grant permission license [$($actionContext.References.Permission.DisplayName)] was successful"
+                    Message = "Grant permission license [$($actionContext.PermissionDisplayName)] was successful"
                     IsError = $false
                 })
         }

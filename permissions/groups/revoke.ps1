@@ -171,7 +171,7 @@ try {
             }
 
             if (-not($actionContext.DryRun -eq $true)) {
-                Write-Information "Revoking GoogleWS permission: [$($actionContext.References.Permission.DisplayName)] - [$($actionContext.References.Permission.Reference)]"
+                Write-Information "Revoking GoogleWS permission: [$($actionContext.PermissionDisplayName)] - [$($actionContext.References.Permission.Reference)]"
                 try {
                     $null = Invoke-RestMethod @splatRemoveMemberFromGroupParams
                 } catch {
@@ -181,12 +181,12 @@ try {
                 }
 
             } else {
-                Write-Information "[DryRun] Revoke GoogleWS permission: [$($actionContext.References.Permission.DisplayName)] - [$($actionContext.References.Permission.Reference)], will be executed during enforcement"
+                Write-Information "[DryRun] Revoke GoogleWS permission: [$($actionContext.PermissionDisplayName)] - [$($actionContext.References.Permission.Reference)], will be executed during enforcement"
             }
 
             $outputContext.Success = $true
             $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = "Revoke permission [$($actionContext.References.Permission.DisplayName)] was successful"
+                    Message = "Revoke permission [$($actionContext.PermissionDisplayName)] was successful"
                     IsError = $false
                 })
         }
