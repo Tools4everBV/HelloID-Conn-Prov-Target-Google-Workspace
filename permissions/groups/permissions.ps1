@@ -127,7 +127,11 @@ function Invoke-GoogleWSRestMethodWithPaging {
 
         [Parameter(Mandatory)]
         [System.Collections.IDictionary]
-        $Headers
+        $Headers,
+
+        [Parameter(Mandatory)]
+        [string]
+        $CollectionName
     )
     process {
         $maxResults = 200
@@ -139,22 +143,17 @@ function Invoke-GoogleWSRestMethodWithPaging {
                 if ($Uri.Contains('?')) {
                     $urlWithOffSet = $Uri + "&maxResults=$maxResults"
                 }
-                if (-not ($null -eq $partialResult.nextPageToken)) {
-                    $urlWithOffSetAndToken = $urlWithOffSet + "&pageToken=$($partialResult.nextPageToken)"
-                } else {
-                    $urlWithOffSetAndToken = $urlWithOffSet
+                if ($partialResult.nextPageToken) {
+                    $urlWithOffset += "&pageToken=$($partialResult.nextPageToken)"
                 }
-
                 $splatParams = @{
-                    Uri         = $urlWithOffSetAndToken
-                    Headers     = $Headers
-                    Method      = $Method
-                    ContentType = $ContentType
+                    Uri     = $urlWithOffset
+                    Headers = $Headers
+                    Method  = $Method
                 }
                 $partialResult = Invoke-RestMethod @splatParams -Verbose:$false
-
-                if ($partialResult.groups.Count -gt 1) {
-                    $returnList.AddRange($partialResult.groups)
+                if ($partialResult.$CollectionName.Count -gt 0) {
+                    $returnList.AddRange($partialResult.$CollectionName)
                 }
 
             } until ($null -eq $partialResult.nextPageToken)
@@ -188,7 +187,7 @@ try {
         Method  = 'GET'
         Headers = $headers
     }
-    $retrievedPermissions = Invoke-GoogleWSRestMethodWithPaging @splatGetGroups
+    $retrievedPermissions = Invoke-GoogleWSRestMethodWithPaging @splatGetGroups -CollectionName 'groups'
 
     # Make sure to test with special characters and if needed; add utf8 encoding.
     foreach ($permission in $retrievedPermissions) {

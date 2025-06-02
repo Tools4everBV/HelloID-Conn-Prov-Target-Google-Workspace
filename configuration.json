@@ -40,6 +40,16 @@
       "required": true
     }
   },
+    {
+    "key": "CustomerId",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "CustomerId",
+      "description": "The Customer ID of the Google Environment. Only required for import licenses script. It can be found in the Google Admin Console under Account > Account Settings > Customer ID.",
+      "required": false
+    }
+  },
   {
     "key": "InitialContainer",
     "type": "input",

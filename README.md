@@ -31,6 +31,9 @@
     - [Permissions - Licenses](#permissions---licenses)
     - [Resources - Groups](#resources---groups)
     - [Resources - Organizational Units](#resources---organizational-units)
+    - [Import - Account](#import---account)
+    - [Import - Groups](#import---groups)
+    - [Import - Licenses](#import---licenses)
   - [Development resources](#development-resources)
     - [API documentation](#api-documentation)
   - [Getting help](#getting-help)
@@ -76,6 +79,7 @@ The following settings are available:
 | Subject                   | The user or service account on whose behalf the token is issued. Typically represents the admin account that has been authorized to perform actions on behalf of users or manage the Google Workspace domain. | Yes       | `admin@example.com`                                          |
 | P12CertificateBase64      | The Base64 encoded version of the P12 (PKCS #12) certificate. Refer to the readme for more information.                                                                                                       | Yes       | `MIIC... (truncated base64)`                                 |
 | P12CertificatePassword    | The password used to protect the private key stored within the P12 (PKCS #12) certificate.                                                                                                                    | Yes       | `mypassword123`                                              |
+| CustomerID                | The Customer ID of the Google Environment. Only required for Import Licenses script. It can be found in the Google Admin Console under `Account > Account Settings > Customer ID`.                            | Yes       | `C00000000`                                                  |
 | InitialContainer          | The Organizational Unit in which accounts should be created. When not specified, the value is determined by the fieldMapping.                                                                                 | No        | `/Users/NewAccounts`                                         |
 | EnabledContainer          | The Organizational Unit to which accounts should be moved when enabled. When not specified, the value is determined by the fieldMapping.                                                                      | No        | `/Users/EnabledAccounts`                                     |
 | DisabledContainer         | The Organizational Unit to which accounts should be moved when disabled. When not specified, the value is determined by the fieldMapping.                                                                     | No        | `/Users/DisabledAccounts`                                    |
@@ -95,7 +99,7 @@ The correlation configuration is used to specify which properties will be used t
 | ------------------------- | --------------------------------- |
 | Enable correlation        | `True`                            |
 | Person correlation field  | `PersonContext.Person.ExternalId` |
-| Account correlation field | `EmployeeNumber`                  |
+| Account correlation field | `ExternalID`                  |
 
 > [!TIP]
 > _For more information on correlation, please refer to our correlation [documentation](https://docs.helloid.com/en/provisioning/target-systems/powershell-v2-target-systems/correlation.html) pages_.
@@ -229,6 +233,18 @@ To create an organizational unit, you must specify key details such as:
 
 > [!NOTE]
 > The `parentOrgUnitPath` must be set within the [configuration.](#connection-settings)
+
+### Import - Account
+The import account script uses the same `ConvertTo-HelloIDAccountObject` function as the create and update scripts to map the Google account object to the HelloID field mapping. Keep in mind that any changes to the field mapping may also require updates to this function
+
+### Import - Groups
+Only the groups that contain members are shown in HelloID.
+
+### Import - Licenses
+- The licenses are static permissions in HelloID, so they cannot be retrieved from Google. Therefore, the list used in the permissions script is also used in the import script. Note that this static permission list should match exactly. The only difference between the lists is that the import script also requires a ProductID, which can be found in the Google API documentation. Currently, all the permissions listed are also included in the import script.
+
+- Only the licenses that contain members are shown in HelloID.
+- To retrieve the members of a `license (SKU)`, the API also requires a `CustomerId`, which can be configured in the connector settings.
 
 ## Development resources
 

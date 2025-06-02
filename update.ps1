@@ -137,15 +137,9 @@ function ConvertTo-HelloIDAccountObject {
             foreach ($externalId in $GoogleAccountObject.externalIds ) {
                 switch ($externalId.type) {
                     'organization' {
-                        $externalId = $GoogleAccountObject.ExternalId.value
+                        $externalId = $externalId.value
                     }
                 }
-            }
-        }
-
-        if ($null -ne $GoogleAccountObject.externalIds) {
-            if ($null -ne $GoogleAccountObject.ExternalIds[0]) {
-                $externalId = $GoogleAccountObject.ExternalIds[0].value
             }
         }
 
@@ -273,9 +267,9 @@ function ConvertTo-GoogleAccountUpdateObject {
                     type  = $phoneTypes[$property]
                     value = "$($HelloIDAccountObject.$property)"
                 }
-                $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'phones' -Value $phones
             }
         }
+        $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'phones' -Value $phones
 
         write-output $googleAccountUpdateObject
     }

@@ -210,11 +210,12 @@ function ConvertTo-HelloIDAccountObject {
             foreach ($externalId in $GoogleAccountObject.externalIds ) {
                 switch ($externalId.type) {
                     'organization' {
-                        $externalId = $GoogleAccountObject.ExternalId.value
+                        $externalId = $externalId.value
                     }
                 }
             }
         }
+
         if ($null -ne $GoogleAccountObject.relations) {
             foreach ($relation in  $GoogleAccountObject.relations) {
                 if ($relation.type -eq "manager") {
