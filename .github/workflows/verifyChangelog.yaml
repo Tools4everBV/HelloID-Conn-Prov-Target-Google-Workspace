@@ -1,3 +1,8 @@
+####################################
+# Workflow: Verify CHANGELOG Updated
+# Version:  0.0.1
+####################################
+
 name: Verify CHANGELOG Updated
 
 on:
@@ -12,7 +17,7 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v3
       with:
-        fetch-depth: 0  # Ensure full history is fetched
+        fetch-depth: 0
 
     - name: Ensure CHANGELOG.md is updated
       run: |
