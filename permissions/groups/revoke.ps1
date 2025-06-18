@@ -167,7 +167,7 @@ try {
                 Uri         = "https://www.googleapis.com/admin/directory/v1/groups/$($actionContext.References.Permission.Reference)/members/$($actionContext.References.Account)"
                 Method      = 'DELETE'
                 Headers     = $headers
-                ContentType = 'application/json'
+                ContentType = 'application/json;charset=utf-8'
             }
 
             if (-not($actionContext.DryRun -eq $true)) {

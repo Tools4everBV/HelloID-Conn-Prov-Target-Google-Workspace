@@ -215,7 +215,7 @@ try {
                         Uri         = "https://www.googleapis.com/admin/directory/v1/groups"
                         Method      = 'POST'
                         Headers     = $headers
-                        ContentType = 'application/json'
+                        ContentType = 'application/json;charset=utf-8'
                         Body        = ([ordered]@{
                                 name  = $resource
                                 email = $emailFormatted

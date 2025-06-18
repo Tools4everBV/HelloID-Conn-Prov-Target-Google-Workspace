@@ -166,7 +166,7 @@ try {
                     Uri         = "https://www.googleapis.com/apps/licensing/v1/product/Google-Apps/sku/$($actionContext.References.Permission.Reference)/user"
                     Method      = 'POST'
                     Headers     = $headers
-                    ContentType = 'application/json'
+                    ContentType = 'application/json;charset=utf-8'
                     Body = @{
                         userId = $correlatedAccount.primaryEmail
                     } | ConvertTo-Json

@@ -165,7 +165,6 @@ function Invoke-GoogleWSRestMethodWithPaging {
 
 function ConvertTo-HelloIDAccountObject {
     [CmdletBinding()]
-    [OutputType([PSCustomObject])]
     param(
         [Parameter(ValueFromPipeline = $True)]
         [object]
@@ -209,13 +208,20 @@ function ConvertTo-HelloIDAccountObject {
             $includeInGlobalAddressList = 'false'
         }
 
+        $mobilePhone = $null
+        $workPhone = $null
         foreach ($phone in $GoogleAccountObject.phones ) {
             switch ($phone.type) {
-                'mobile' { $mobilePhone = $phone.value }
-                'work' { $workPhone = $phone.value }
+                'mobile' {
+                    $mobilePhone = if ([string]::IsNullOrEmpty($phone.value)) { $null } else { $phone.value }
+                }
+                'work' {
+                    $workPhone = if ([string]::IsNullOrEmpty($phone.value)) { $null } else { $phone.value }
+                }
             }
         }
-        $HelloIdAccountObject = [PSCustomObject] @{
+
+        $helloIdAccountObject = [PSCustomObject] @{
             Container                  = "$($GoogleAccountObject.orgUnitPath)"
             Department                 = "$department"
             ExternalID                 = "$externalId"
@@ -223,16 +229,14 @@ function ConvertTo-HelloIDAccountObject {
             GivenName                  = "$($GoogleAccountObject.name.givenName)"
             IncludeInGlobalAddressList = "$includeInGlobalAddressList"
             Manager                    = "$Manager"
-            MobilePhone                = "$mobilePhone"
+            MobilePhone                = $mobilePhone
             PrimaryEmail               = "$($GoogleAccountObject.PrimaryEmail)"
             Title                      = "$title"
-            WorkPhone                  = "$workPhone"
+            WorkPhone                  = $workPhone
         }
-        Write-Output $HelloIdAccountObject
+        Write-Output $helloIdAccountObject
     }
 }
-
-
 
 try {
     Write-Information 'Starting account data import'

@@ -174,7 +174,7 @@ try {
                     Method      = 'PUT'
                     Body        = $disableAccountObj | ConvertTo-Json
                     Headers     = $headers
-                    ContentType = 'application/json'
+                    ContentType = 'application/json;charset=utf-8'
                 }
                 $null = Invoke-RestMethod @splatDisableParams
                 if ([string]::IsNullOrWhiteSpace($actionContext.Configuration.DisabledContainer)) {

@@ -187,7 +187,6 @@ function New-GoogleAccountObject {
 
 function ConvertTo-HelloIDAccountObject {
     [CmdletBinding()]
-    [OutputType([PSCustomObject])]
     param(
         [Parameter(ValueFromPipeline = $True)]
         [object]
@@ -218,7 +217,7 @@ function ConvertTo-HelloIDAccountObject {
 
         if ($null -ne $GoogleAccountObject.relations) {
             foreach ($relation in  $GoogleAccountObject.relations) {
-                if ($relation.type -eq "manager") {
+                if ($relation.type -eq 'manager') {
                     $manager = $relation.value
                     break
                 }
@@ -226,20 +225,25 @@ function ConvertTo-HelloIDAccountObject {
         }
 
         if ($GoogleAccountObject.IncludeInGlobalAddressList) {
-            $includeInGlobalAddressList = "true"
-        }
-        else {
-            $includeInGlobalAddressList = "false"
+            $includeInGlobalAddressList = 'true'
+        } else {
+            $includeInGlobalAddressList = 'false'
         }
 
+        $mobilePhone = $null
+        $workPhone = $null
         foreach ($phone in $GoogleAccountObject.phones ) {
             switch ($phone.type) {
-                'mobile' { $mobilePhone = $phone.value }
-                'work' { $workPhone = $phone.value }
+                'mobile' {
+                    $mobilePhone = if ([string]::IsNullOrEmpty($phone.value)) { $null } else { $phone.value }
+                }
+                'work' {
+                    $workPhone = if ([string]::IsNullOrEmpty($phone.value)) { $null } else { $phone.value }
+                }
             }
         }
 
-        $HelloIdAccountObject = [PSCustomObject] @{
+        $helloIdAccountObject = [PSCustomObject] @{
             Container                  = "$($GoogleAccountObject.orgUnitPath)"
             Department                 = "$department"
             ExternalID                 = "$externalId"
@@ -247,12 +251,12 @@ function ConvertTo-HelloIDAccountObject {
             GivenName                  = "$($GoogleAccountObject.name.givenName)"
             IncludeInGlobalAddressList = "$includeInGlobalAddressList"
             Manager                    = "$Manager"
-            MobilePhone                = "$mobilePhone"
+            MobilePhone                = $mobilePhone
             PrimaryEmail               = "$($GoogleAccountObject.PrimaryEmail)"
             Title                      = "$title"
-            WorkPhone                  = "$workPhone"
+            WorkPhone                  = $workPhone
         }
-        write-output $HelloIdAccountObject
+        Write-Output $helloIdAccountObject
     }
 }
 #endregion
@@ -325,7 +329,7 @@ try {
                 Method      = 'POST'
                 Body        = $account | ConvertTo-Json
                 Headers     = $headers
-                ContentType = 'application/json'
+                ContentType = 'application/json;charset=utf-8'
             }
 
             if (-not($actionContext.DryRun -eq $true)) {

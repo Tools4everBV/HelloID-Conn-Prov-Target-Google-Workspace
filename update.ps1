@@ -145,7 +145,7 @@ function ConvertTo-HelloIDAccountObject {
 
         if ($null -ne $GoogleAccountObject.relations) {
             foreach ($relation in  $GoogleAccountObject.relations) {
-                if ($relation.type -eq "manager") {
+                if ($relation.type -eq 'manager') {
                     $manager = $relation.value
                     break
                 }
@@ -153,9 +153,9 @@ function ConvertTo-HelloIDAccountObject {
         }
 
         if ($GoogleAccountObject.IncludeInGlobalAddressList) {
-            $includeInGlobalAddressList = "true"
+            $includeInGlobalAddressList = 'true'
         } else {
-            $includeInGlobalAddressList = "false"
+            $includeInGlobalAddressList = 'false'
         }
 
         $mobilePhone = $null
@@ -179,12 +179,12 @@ function ConvertTo-HelloIDAccountObject {
             GivenName                  = "$($GoogleAccountObject.name.givenName)"
             IncludeInGlobalAddressList = "$includeInGlobalAddressList"
             Manager                    = "$Manager"
-            MobilePhone                = "$mobilePhone"
+            MobilePhone                = $mobilePhone
             PrimaryEmail               = "$($GoogleAccountObject.PrimaryEmail)"
             Title                      = "$title"
             WorkPhone                  = $workPhone
         }
-        write-output $helloIdAccountObject
+        Write-Output $helloIdAccountObject
     }
 }
 
@@ -256,16 +256,27 @@ function ConvertTo-GoogleAccountUpdateObject {
             $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'name' -Value $name
         }
 
-        $phones = @()
+        [array]$phones = ($PreviousGoogleAccountObject.phones)
         $phoneTypes = @{
             MobilePhone = 'mobile'
             WorkPhone   = 'work'
         }
+
+        # Update the phone numbers list by updating existing numbers, adding new ones, and removing any empty entries.
         foreach ($property in $phoneTypes.Keys) {
             if ($property -in $PropertiesToConvert.Name) {
-                $phones += @{
-                    type  = $phoneTypes[$property]
-                    value = "$($HelloIDAccountObject.$property)"
+                $objectToUpdate = $phones | Where-Object { $_.type -eq ($property -split 'Phone')[0] }
+                if ($null -ne $objectToUpdate) {
+                    if ([System.String]::IsNullOrEmpty($HelloIDAccountObject.$property)) {
+                        $phones = $phones | Where-Object { $_.type -ne ($property -split 'Phone')[0] }
+                    } else {
+                        $objectToUpdate.value = "$($HelloIDAccountObject.$property)"
+                    }
+                } else {
+                    [array]$phones += ([PSCustomObject]@{
+                            type  = $phoneTypes[$property]
+                            value = "$($HelloIDAccountObject.$property)"
+                        })
                 }
             }
         }
@@ -322,7 +333,8 @@ try {
         }
         $propertiesChanged = Compare-Object @splatCompareProperties -PassThru | Where-Object { $_.SideIndicator -eq '=>' }
         if ($actionContext.Configuration.MoveAccountOnUpdate -eq $false) {
-            $propertiesChanged = $propertiesChanged | Where-Object { $_.Name -ne 'Container' }
+            [array]$propertiesChanged = $propertiesChanged | Where-Object { $_.Name -ne 'Container' }
+            $outputContext.PreviousData.Container = $actionContext.Data.Container
         }
         if ($propertiesChanged) {
             $action = 'UpdateAccount'
@@ -346,7 +358,7 @@ try {
                     Method      = 'PUT'
                     Body        = $googleAccountUpdateObject | ConvertTo-Json
                     Headers     = $headers
-                    ContentType = 'application/json'
+                    ContentType = 'application/json;charset=utf-8'
                 }
                 $updatedAccountGoogle = Invoke-RestMethod @splatUpdateParams
                 $outputContext.Data = $updatedAccountGoogle | ConvertTo-HelloIDAccountObject

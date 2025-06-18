@@ -261,7 +261,7 @@ try {
                         Uri         = "https://www.googleapis.com/admin/directory/v1/groups/$($group.id)/members"
                         Method      = 'POST'
                         Headers     = $headers
-                        ContentType = 'application/json'
+                        ContentType = 'application/json;charset=utf-8'
                         Body        = @{
                             id = "$($actionContext.References.Account)"
                         } | ConvertTo-Json

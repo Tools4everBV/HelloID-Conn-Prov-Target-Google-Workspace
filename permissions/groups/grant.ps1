@@ -167,7 +167,7 @@ try {
                 Uri         = "https://www.googleapis.com/admin/directory/v1/groups/$($actionContext.References.Permission.Reference)/members"
                 Method      = 'POST'
                 Headers     = $headers
-                ContentType = 'application/json'
+                ContentType = 'application/json;charset=utf-8'
                 Body        = (@{
                         id   = "$($actionContext.References.Account)"
                         role = 'MEMBER'
