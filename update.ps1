@@ -23,7 +23,8 @@ function Resolve-GoogleWSError {
         }
         if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
             $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             if ($null -ne $ErrorObject.Exception.Response) {
                 $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
                 if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
@@ -35,10 +36,12 @@ function Resolve-GoogleWSError {
             $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
             if (-NOT([String]::IsNullOrEmpty(($errorDetailsObject.error | Select-Object -First 1).message))) {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error.message -join ', '
-            } else {
+            }
+            else {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
             }
-        } catch {
+        }
+        catch {
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
@@ -145,7 +148,7 @@ function ConvertTo-HelloIDAccountObject {
 
         if ($null -ne $GoogleAccountObject.relations) {
             foreach ($relation in  $GoogleAccountObject.relations) {
-                if ($relation.type -eq 'manager') {
+                if ($relation.type -eq "manager") {
                     $manager = $relation.value
                     break
                 }
@@ -153,9 +156,10 @@ function ConvertTo-HelloIDAccountObject {
         }
 
         if ($GoogleAccountObject.IncludeInGlobalAddressList) {
-            $includeInGlobalAddressList = 'true'
-        } else {
-            $includeInGlobalAddressList = 'false'
+            $includeInGlobalAddressList = "true"
+        }
+        else {
+            $includeInGlobalAddressList = "false"
         }
 
         $mobilePhone = $null
@@ -179,12 +183,12 @@ function ConvertTo-HelloIDAccountObject {
             GivenName                  = "$($GoogleAccountObject.name.givenName)"
             IncludeInGlobalAddressList = "$includeInGlobalAddressList"
             Manager                    = "$Manager"
-            MobilePhone                = $mobilePhone
+            MobilePhone                = "$mobilePhone"
             PrimaryEmail               = "$($GoogleAccountObject.PrimaryEmail)"
             Title                      = "$title"
             WorkPhone                  = $workPhone
         }
-        Write-Output $helloIdAccountObject
+        write-output $helloIdAccountObject
     }
 }
 
@@ -207,11 +211,11 @@ function ConvertTo-GoogleAccountUpdateObject {
     process {
         $googleAccountUpdateObject = [PSCustomObject] @{}
 
-        if ('Container' -in $PropertiesToConvert.Name){
+        if ('Container' -in $PropertiesToConvert.Name) {
             $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'orgUnitPath' -Value $HelloIDAccountObject.Container
         }
 
-        if ('ExternalID' -in $PropertiesToConvert.Name){
+        if ('ExternalID' -in $PropertiesToConvert.Name) {
             $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'externalIds' -Value @(
                 @{
                     value = "$($actionContext.Data.ExternalId)"
@@ -220,16 +224,16 @@ function ConvertTo-GoogleAccountUpdateObject {
             )
         }
 
-        if ('PrimaryEmail' -in $PropertiesToConvert.Name){
+        if ('PrimaryEmail' -in $PropertiesToConvert.Name) {
             $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'primaryEmail' -Value $HelloIDAccountObject.primaryEmail
         }
 
-        if ('IncludeInGlobalAddressList' -in $PropertiesToConvert.Name){
+        if ('IncludeInGlobalAddressList' -in $PropertiesToConvert.Name) {
             [bool]$includeInGlobalAddressList = [System.Convert]::ToBoolean($HelloIDAccountObject.includeInGlobalAddressList )
             $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'includeInGlobalAddressList' -Value $includeInGlobalAddressList
         }
 
-        if ('Manager' -in $PropertiesToConvert.Name){
+        if ('Manager' -in $PropertiesToConvert.Name) {
             $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'relations' -Value @(
                 @{
                     type  = 'manager'
@@ -256,27 +260,16 @@ function ConvertTo-GoogleAccountUpdateObject {
             $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'name' -Value $name
         }
 
-        [array]$phones = ($PreviousGoogleAccountObject.phones)
+        $phones = @()
         $phoneTypes = @{
             MobilePhone = 'mobile'
             WorkPhone   = 'work'
         }
-
-        # Update the phone numbers list by updating existing numbers, adding new ones, and removing any empty entries.
         foreach ($property in $phoneTypes.Keys) {
             if ($property -in $PropertiesToConvert.Name) {
-                $objectToUpdate = $phones | Where-Object { $_.type -eq ($property -split 'Phone')[0] }
-                if ($null -ne $objectToUpdate) {
-                    if ([System.String]::IsNullOrEmpty($HelloIDAccountObject.$property)) {
-                        $phones = $phones | Where-Object { $_.type -ne ($property -split 'Phone')[0] }
-                    } else {
-                        $objectToUpdate.value = "$($HelloIDAccountObject.$property)"
-                    }
-                } else {
-                    [array]$phones += ([PSCustomObject]@{
-                            type  = $phoneTypes[$property]
-                            value = "$($HelloIDAccountObject.$property)"
-                        })
+                $phones += @{
+                    type  = $phoneTypes[$property]
+                    value = "$($HelloIDAccountObject.$property)"
                 }
             }
         }
@@ -333,15 +326,16 @@ try {
         }
         $propertiesChanged = Compare-Object @splatCompareProperties -PassThru | Where-Object { $_.SideIndicator -eq '=>' }
         if ($actionContext.Configuration.MoveAccountOnUpdate -eq $false) {
-            [array]$propertiesChanged = $propertiesChanged | Where-Object { $_.Name -ne 'Container' }
-            $outputContext.PreviousData.Container = $actionContext.Data.Container
+            $propertiesChanged = $propertiesChanged | Where-Object { $_.Name -ne 'Container' }
         }
         if ($propertiesChanged) {
             $action = 'UpdateAccount'
-        } else {
+        }
+        else {
             $action = 'NoChanges'
         }
-    } else {
+    }
+    else {
         $action = 'NotFound'
     }
 
@@ -358,14 +352,15 @@ try {
                     Method      = 'PUT'
                     Body        = $googleAccountUpdateObject | ConvertTo-Json
                     Headers     = $headers
-                    ContentType = 'application/json;charset=utf-8'
+                    ContentType = 'application/json'
                 }
                 $updatedAccountGoogle = Invoke-RestMethod @splatUpdateParams
                 $outputContext.Data = $updatedAccountGoogle | ConvertTo-HelloIDAccountObject
-                if ($propertiesChanged.Name -contains 'primaryEmail'){
-                    $outputContext.AccountReference = @{id = $correlatedAccountGoogle.id; primaryEmail = $updatedAccountGoogle.primaryEmail}
+                if ($propertiesChanged.Name -contains 'primaryEmail') {
+                    $outputContext.AccountReference = @{id = $correlatedAccountGoogle.id; primaryEmail = $updatedAccountGoogle.primaryEmail }
                 }
-            } else {
+            }
+            else {
                 Write-Information "[DryRun] Update GoogleWS account with accountReference: [$($actionContext.References.Account)], will be executed during enforcement"
             }
 
@@ -398,7 +393,8 @@ try {
             break
         }
     }
-} catch {
+}
+catch {
     $outputContext.Success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
@@ -406,7 +402,8 @@ try {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
         $auditMessage = "Could not update GoogleWS account. Error: $($errorObj.FriendlyMessage)"
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
-    } else {
+    }
+    else {
         $auditMessage = "Could not update GoogleWS account. Error: $($ex.Exception.Message)"
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }

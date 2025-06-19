@@ -23,7 +23,8 @@ function Resolve-GoogleWSError {
         }
         if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
             $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             if ($null -ne $ErrorObject.Exception.Response) {
                 $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
                 if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
@@ -35,10 +36,12 @@ function Resolve-GoogleWSError {
             $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
             if (-NOT([String]::IsNullOrEmpty(($errorDetailsObject.error | Select-Object -First 1).message))) {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error.message -join ', '
-            } else {
+            }
+            else {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
             }
-        } catch {
+        }
+        catch {
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
@@ -151,7 +154,8 @@ try {
 
     if ($null -ne $correlatedAccount) {
         $action = 'DisableAccount'
-    } else {
+    }
+    else {
         $action = 'NotFound'
     }
 
@@ -159,12 +163,12 @@ try {
     switch ($action) {
         'DisableAccount' {
             $disableAccountObj = @{
-                suspended = $true
+                suspended                  = $true
                 includeInGlobalAddressList = $false
             }
 
-            if (-not[string]::IsNullOrWhiteSpace($actionContext.Configuration.DisabledContainer)) {
-                $disableAccountObj | Add-Member -MemberType 'NoteProperty' -Name 'orgUnitPath' -Value $actionContext.Configuration.DisabledContainer
+            if (-not[string]::IsNullOrWhiteSpace($actionContext.Data.Container)) {
+                $disableAccountObj | Add-Member -MemberType 'NoteProperty' -Name 'orgUnitPath' -Value $actionContext.Data.Container
             }
 
             if (-not($actionContext.DryRun -eq $true)) {
@@ -174,19 +178,22 @@ try {
                     Method      = 'PUT'
                     Body        = $disableAccountObj | ConvertTo-Json
                     Headers     = $headers
-                    ContentType = 'application/json;charset=utf-8'
+                    ContentType = 'application/json'
                 }
                 $null = Invoke-RestMethod @splatDisableParams
-                if ([string]::IsNullOrWhiteSpace($actionContext.Configuration.DisabledContainer)) {
+                if ([string]::IsNullOrWhiteSpace($actionContext.Data.Container)) {
                     $auditLogMessage = "Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful"
-                } else {
-                    $auditLogMessage = "Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful. Account has been moved to OU:[$($actionContext.Configuration.DisabledContainer)]"
                 }
-            } else {
-                if ([string]::IsNullOrWhiteSpace($actionContext.Configuration.DisabledContainer)){
+                else {
+                    $auditLogMessage = "Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful. Account has been moved to OU:[$($actionContext.Data.Container)]"
+                }
+            }
+            else {
+                if ([string]::IsNullOrWhiteSpace($actionContext.Data.Container)) {
                     $auditLogMessage = "[DryRun] Disable GoogleWS account with accountReference: [$($actionContext.References.Account)], will be executed during enforcement"
-                } else{
-                    $auditLogMessage =  "[DryRun] Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] and move account to OU: [$($actionContext.Configuration.DisabledContainer)] will be executed during enforcement"
+                }
+                else {
+                    $auditLogMessage = "[DryRun] Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] and move account to OU: [$($actionContext.Data.Container)] will be executed during enforcement"
                 }
             }
 
@@ -209,7 +216,8 @@ try {
             break
         }
     }
-} catch {
+}
+catch {
     $outputContext.success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
@@ -217,12 +225,13 @@ try {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
         $auditMessage = "Could not disable GoogleWS account. Error: $($errorObj.FriendlyMessage)"
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
-    } else {
+    }
+    else {
         $auditMessage = "Could not disable GoogleWS account. Error: $($_.Exception.Message)"
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
     $outputContext.AuditLogs.Add([PSCustomObject]@{
-        Message = $auditMessage
-        IsError = $true
-    })
+            Message = $auditMessage
+            IsError = $true
+        })
 }

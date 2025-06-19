@@ -23,7 +23,8 @@ function Resolve-GoogleWSError {
         }
         if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
             $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             if ($null -ne $ErrorObject.Exception.Response) {
                 $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
                 if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
@@ -35,10 +36,12 @@ function Resolve-GoogleWSError {
             $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
             if (-NOT([String]::IsNullOrEmpty(($errorDetailsObject.error | Select-Object -First 1).message))) {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error.message -join ', '
-            } else {
+            }
+            else {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
             }
-        } catch {
+        }
+        catch {
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
@@ -151,7 +154,8 @@ try {
 
     if ($null -ne $correlatedAccount) {
         $action = 'EnableAccount'
-    } else {
+    }
+    else {
         $action = 'NotFound'
     }
 
@@ -159,12 +163,12 @@ try {
     switch ($action) {
         'EnableAccount' {
             $enableAccountObj = @{
-                suspended = $false
+                suspended                  = $false
                 includeInGlobalAddressList = $true
             }
 
-            if (-not[string]::IsNullOrWhiteSpace($actionContext.Configuration.EnabledContainer)) {
-                $enableAccountObj | Add-Member -MemberType 'NoteProperty' -Name 'orgUnitPath' -Value $actionContext.Configuration.EnabledContainer
+            if (-not[string]::IsNullOrWhiteSpace($actionContext.Data.Container)) {
+                $enableAccountObj | Add-Member -MemberType 'NoteProperty' -Name 'orgUnitPath' -Value $actionContext.Data.Container
             }
 
             if (-not($actionContext.DryRun -eq $true)) {
@@ -174,19 +178,22 @@ try {
                     Method      = 'PUT'
                     Body        = $enableAccountObj | ConvertTo-Json
                     Headers     = $headers
-                    ContentType = 'application/json;charset=utf-8'
+                    ContentType = 'application/json'
                 }
                 $null = Invoke-RestMethod @splatEnableParams
-                if ([string]::IsNullOrWhiteSpace($actionContext.Configuration.EnabledContainer)) {
+                if ([string]::IsNullOrWhiteSpace($actionContext.Data.Container)) {
                     $auditLogMessage = "Enable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful"
-                } else {
-                    $auditLogMessage = "Enable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful. Account has been moved to OU: [$($actionContext.Configuration.EnabledContainer)]"
                 }
-            } else {
-                if ([string]::IsNullOrWhiteSpace($actionContext.Configuration.EnabledContainer)){
+                else {
+                    $auditLogMessage = "Enable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful. Account has been moved to OU: [$($actionContext.Data.Container)]"
+                }
+            }
+            else {
+                if ([string]::IsNullOrWhiteSpace($actionContext.Data.Container)) {
                     $auditLogMessage = "[DryRun] Enable GoogleWS account with accountReference: [$($actionContext.References.Account)], will be executed during enforcement"
-                } else{
-                    $auditLogMessage = "[DryRun] Enable GoogleWS account with accountReference: [$($actionContext.References.Account)] and move account to OU: [$($actionContext.Configuration.EnabledContainer)] will be executed during enforcement"
+                }
+                else {
+                    $auditLogMessage = "[DryRun] Enable GoogleWS account with accountReference: [$($actionContext.References.Account)] and move account to OU: [$($actionContext.Data.Container)] will be executed during enforcement"
                 }
             }
 
@@ -210,7 +217,8 @@ try {
         }
     }
 
-} catch {
+}
+catch {
     $outputContext.success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
@@ -218,12 +226,13 @@ try {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
         $auditMessage = "Could not enable GoogleWS account. Error: $($errorObj.FriendlyMessage)"
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
-    } else {
+    }
+    else {
         $auditMessage = "Could not enable GoogleWS account. Error: $($_.Exception.Message)"
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
     $outputContext.AuditLogs.Add([PSCustomObject]@{
-        Message = $auditMessage
-        IsError = $true
-    })
+            Message = $auditMessage
+            IsError = $true
+        })
 }
