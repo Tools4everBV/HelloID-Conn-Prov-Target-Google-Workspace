@@ -23,7 +23,8 @@ function Resolve-GoogleWSError {
         }
         if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
             $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             if ($null -ne $ErrorObject.Exception.Response) {
                 $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
                 if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
@@ -35,10 +36,12 @@ function Resolve-GoogleWSError {
             $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
             if (-NOT([String]::IsNullOrEmpty(($errorDetailsObject.error | Select-Object -First 1).message))) {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error.message -join ', '
-            } else {
+            }
+            else {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
             }
-        } catch {
+        }
+        catch {
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
@@ -145,7 +148,7 @@ function New-GoogleAccountObject {
     }
 
     $relations = @()
-    if ($actionContext.Configuration.SetPrimaryManagerOnCreate -eq $tue){
+    if ($actionContext.Configuration.SetPrimaryManagerOnCreate -eq $tue) {
         if (-not [string]::IsNullOrWhiteSpace($actionContext.Data.Manager)) {
             $relations = @(@{
                     type  = "manager"
@@ -226,7 +229,8 @@ function ConvertTo-HelloIDAccountObject {
 
         if ($GoogleAccountObject.IncludeInGlobalAddressList) {
             $includeInGlobalAddressList = 'true'
-        } else {
+        }
+        else {
             $includeInGlobalAddressList = 'false'
         }
 
@@ -301,7 +305,8 @@ try {
                 ContentType = 'application/x-www-form-urlencoded'
             }
             $correlatedAccount = Invoke-RestMethod @splatGetUserParams
-        } catch {
+        }
+        catch {
             if ($_.Exception.Response.StatusCode -ne 404) {
                 throw
             }
@@ -365,7 +370,8 @@ try {
             Message = $auditLogMessage
             IsError = $false
         })
-} catch {
+}
+catch {
     $outputContext.success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
@@ -373,7 +379,8 @@ try {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
         $auditMessage = "Could not create or correlate GoogleWS account. Error: $($errorObj.FriendlyMessage)"
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
-    } else {
+    }
+    else {
         $auditMessage = "Could not create or correlate GoogleWS account. Error: $($ex.Exception.Message)"
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
