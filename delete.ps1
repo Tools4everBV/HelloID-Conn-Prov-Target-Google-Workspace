@@ -170,7 +170,7 @@ try {
                     Headers = $headers
                 }
                 $null = Invoke-RestMethod @splatUpdateParams
-                $auditLogMessage = "Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful"
+                $auditLogMessage = "Delete GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful"
             }
             else {
                 $auditLogMessage = "[DryRun] Delete GoogleWS account with AccountReference: [$($actionContext.References.Account)], will be executed during enforcement"
