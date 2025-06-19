@@ -335,7 +335,6 @@ try {
             if (-not($actionContext.DryRun -eq $true)) {
                 Write-Information 'Creating and correlating GoogleWS account'
                 $createdAccount = Invoke-RestMethod @splatCreateParams
-                $outputContext.Data = $createdAccount | ConvertTo-HelloIDAccountObject
                 $outputContext.AccountReference = $createdAccount.id
                 $auditLogMessage = "Create account was successful. AccountReference is: [$($outputContext.AccountReference)]. Account created in OU: [$($account.orgUnitPath)]"
             }
