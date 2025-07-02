@@ -195,12 +195,21 @@ try {
     $retrievedPermissions = Invoke-GoogleWSRestMethodWithPaging @splatGetGroups -CollectionName 'groups'
 
     foreach ($retrievedPermission in $retrievedPermissions) {
+
+        # Make sure the displayname has a value of max 100 char
+        $displayName = "$($retrievedPermission.email)"
+        $displayName = $displayName.substring(0, [System.Math]::Min(100, $displayName.Length)) 
+
+        # Make sure the description has a value of max 100 char
+        $description = "$($retrievedPermission.description)"
+        $description = $description.substring(0, [System.Math]::Min(100, $description.Length)) 
+
         $permission = @{
             PermissionReference = @{
                 Reference = $retrievedPermission.id
             }
-            Description         = "$($retrievedPermission.description)"
-            DisplayName         = "$($retrievedPermission.email)"
+            Description         = $description
+            DisplayName         = $displayName
         }
 
         if ($retrievedPermission.directMembersCount -gt 0) {
