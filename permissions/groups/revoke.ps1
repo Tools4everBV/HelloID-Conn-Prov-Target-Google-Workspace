@@ -23,7 +23,8 @@ function Resolve-GoogleWSError {
         }
         if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
             $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             if ($null -ne $ErrorObject.Exception.Response) {
                 $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
                 if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
@@ -35,10 +36,12 @@ function Resolve-GoogleWSError {
             $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
             if (-NOT([String]::IsNullOrEmpty(($errorDetailsObject.error | Select-Object -First 1).message))) {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error.message -join ', '
-            } else {
+            }
+            else {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
             }
-        } catch {
+        }
+        catch {
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
@@ -148,7 +151,8 @@ try {
 
     try {
         $correlatedAccount = Invoke-RestMethod @splatGetGoogleWSUsersParams
-    } catch {
+    }
+    catch {
         if (-not ($_.Exception.StatusCode -eq 404)) {
             throw
         }
@@ -156,7 +160,8 @@ try {
 
     if ($null -ne $correlatedAccount) {
         $action = 'RevokePermission'
-    } else {
+    }
+    else {
         $action = 'NotFound'
     }
 
@@ -174,13 +179,15 @@ try {
                 Write-Information "Revoking GoogleWS permission: [$($actionContext.References.Permission.DisplayName)] - [$($actionContext.References.Permission.Reference)]"
                 try {
                     $null = Invoke-RestMethod @splatRemoveMemberFromGroupParams
-                } catch {
+                }
+                catch {
                     if (-not ($_.ErrorDetails.Message -match 'Resource Not Found: memberKey.')) {
                         throw
                     }
                 }
 
-            } else {
+            }
+            else {
                 Write-Information "[DryRun] Revoke GoogleWS permission: [$($actionContext.References.Permission.DisplayName)] - [$($actionContext.References.Permission.Reference)], will be executed during enforcement"
             }
 
@@ -201,7 +208,8 @@ try {
             break
         }
     }
-} catch {
+}
+catch {
     $outputContext.success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
@@ -209,12 +217,13 @@ try {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
         $auditMessage = "Could not revoke GoogleWS permission. Error: $($errorObj.FriendlyMessage)"
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
-    } else {
+    }
+    else {
         $auditMessage = "Could not revoke GoogleWS permission. Error: $($_.Exception.Message)"
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
     $outputContext.AuditLogs.Add([PSCustomObject]@{
-        Message = $auditMessage
-        IsError = $true
-    })
+            Message = $auditMessage
+            IsError = $true
+        })
 }

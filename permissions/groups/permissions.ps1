@@ -23,7 +23,8 @@ function Resolve-GoogleWSError {
         }
         if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
             $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             if ($null -ne $ErrorObject.Exception.Response) {
                 $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
                 if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
@@ -35,10 +36,12 @@ function Resolve-GoogleWSError {
             $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
             if (-NOT([String]::IsNullOrEmpty(($errorDetailsObject.error | Select-Object -First 1).message))) {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error.message -join ', '
-            } else {
+            }
+            else {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
             }
-        } catch {
+        }
+        catch {
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
@@ -107,7 +110,8 @@ function Get-GoogleWSAccessToken {
         }
         $response = Invoke-RestMethod @splatParams
         $response.access_token
-    } catch {
+    }
+    catch {
         $PSCmdlet.ThrowTerminatingError($_)
     }
 }
@@ -158,7 +162,8 @@ function Invoke-GoogleWSRestMethodWithPaging {
 
             } until ($null -eq $partialResult.nextPageToken)
             Write-Output $returnList -NoEnumerate
-        } catch {
+        }
+        catch {
             $PSCmdlet.ThrowTerminatingError($_)
         }
     }
@@ -201,13 +206,15 @@ try {
             }
         )
     }
-} catch {
+}
+catch {
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
-    } else {
+    }
+    else {
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
 }
