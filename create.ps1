@@ -183,7 +183,6 @@ function New-GoogleAccountObject {
         primaryEmail               = $actionContext.Data.PrimaryEmail
         relations                  = $relations
         Suspended                  = $true
-
     }
     write-output $account
 }
