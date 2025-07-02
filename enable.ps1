@@ -115,6 +115,82 @@ function Get-GoogleWSAccessToken {
         $PSCmdlet.ThrowTerminatingError($_)
     }
 }
+
+function ConvertTo-HelloIDAccountObject {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline = $True)]
+        [object]
+        $GoogleAccountObject
+    )
+
+    process {
+        if ($null -ne $GoogleAccountObject.organizations) {
+            foreach ($organization in $GoogleAccountObject.organizations ) {
+                switch ($organization.type) {
+                    'work' {
+                        $department = $organization.department
+                        $title = $organization.title
+                    }
+                }
+            }
+        }
+
+        if ($null -ne $GoogleAccountObject.externalIds) {
+            foreach ($externalId in $GoogleAccountObject.externalIds ) {
+                switch ($externalId.type) {
+                    'organization' {
+                        $externalId = $externalId.value
+                    }
+                }
+            }
+        }
+
+        if ($null -ne $GoogleAccountObject.relations) {
+            foreach ($relation in  $GoogleAccountObject.relations) {
+                if ($relation.type -eq 'manager') {
+                    $manager = $relation.value
+                    break
+                }
+            }
+        }
+
+        if ($GoogleAccountObject.IncludeInGlobalAddressList) {
+            $includeInGlobalAddressList = 'true'
+        }
+        else {
+            $includeInGlobalAddressList = 'false'
+        }
+
+        $mobilePhone = $null
+        $workPhone = $null
+        foreach ($phone in $GoogleAccountObject.phones ) {
+            switch ($phone.type) {
+                'mobile' {
+                    $mobilePhone = if ([string]::IsNullOrEmpty($phone.value)) { $null } else { $phone.value }
+                }
+                'work' {
+                    $workPhone = if ([string]::IsNullOrEmpty($phone.value)) { $null } else { $phone.value }
+                }
+            }
+        }
+
+        $helloIdAccountObject = [PSCustomObject] @{
+            Container                  = "$($GoogleAccountObject.orgUnitPath)"
+            Department                 = "$department"
+            ExternalID                 = "$externalId"
+            FamilyName                 = "$($GoogleAccountObject.name.familyName)"
+            GivenName                  = "$($GoogleAccountObject.name.givenName)"
+            IncludeInGlobalAddressList = "$includeInGlobalAddressList"
+            Manager                    = "$Manager"
+            MobilePhone                = $mobilePhone
+            PrimaryEmail               = "$($GoogleAccountObject.PrimaryEmail)"
+            Title                      = "$title"
+            WorkPhone                  = $workPhone
+        }
+        Write-Output $helloIdAccountObject
+    }
+}
 #endregion
 
 try {
@@ -144,7 +220,10 @@ try {
             Method  = 'GET'
             Headers = $headers
         }
-        $correlatedAccount = Invoke-RestMethod @splatGetUserParams
+        $correlatedAccountGoogle = Invoke-RestMethod @splatGetUserParams
+
+        $correlatedAccount = ConvertTo-HelloIDAccountObject -GoogleAccountObject $correlatedAccountGoogle
+        $outputContext.PreviousData = $correlatedAccount
     }
     catch {
         if ($_.Exception.Response.StatusCode -ne 404) {
@@ -180,7 +259,9 @@ try {
                     Headers     = $headers
                     ContentType = 'application/json'
                 }
-                $null = Invoke-RestMethod @splatEnableParams
+                $enabledAccountGoogle = Invoke-RestMethod @splatEnableParams
+                $outputContext.Data = $enabledAccountGoogle | ConvertTo-HelloIDAccountObject
+
                 if ([string]::IsNullOrWhiteSpace($actionContext.Data.Container)) {
                     $auditLogMessage = "Enable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful"
                 }
