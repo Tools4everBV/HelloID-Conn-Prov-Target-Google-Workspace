@@ -338,9 +338,10 @@ try {
             DifferenceObject = @($actionContext.Data.PSObject.Properties)
         }
         $propertiesChanged = Compare-Object @splatCompareProperties -PassThru | Where-Object { $_.SideIndicator -eq '=>' }
+        
         if ($actionContext.Configuration.MoveAccountOnUpdate -eq $false) {
             [array]$propertiesChanged = $propertiesChanged | Where-Object { $_.Name -ne 'Container' }
-            $outputContext.PreviousData.Container = $actionContext.Data.Container
+            $outputContext.Data.Container = $actionContext.PreviousData.Container
         }
         if ($propertiesChanged) {
             $action = 'UpdateAccount'
@@ -368,6 +369,7 @@ try {
                     Headers     = $headers
                     ContentType = 'application/json;charset=utf-8'
                 }
+
                 $updatedAccountGoogle = Invoke-RestMethod @splatUpdateParams
                 $outputContext.Data = $updatedAccountGoogle | ConvertTo-HelloIDAccountObject
                 if ($propertiesChanged.Name -contains 'primaryEmail') {
@@ -388,6 +390,8 @@ try {
 
         'NoChanges' {
             Write-Information "No changes to GoogleWS account with accountReference: [$($actionContext.References.Account)]"
+
+            $outputContext.Data = $correlatedAccount
 
             $outputContext.Success = $true
             $outputContext.AuditLogs.Add([PSCustomObject]@{
