@@ -390,6 +390,14 @@ try {
 
         'NotFound' {
             Write-Information "GoogleWS account: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
+            $splatUpdateParams = @{
+                    Uri         = "https://www.googleapis.com/admin/directory/v1/users/$($actionContext.References.Account)"
+                    Method      = 'GET'
+                    Headers     = $headers
+                    ContentType = 'application/json;charset=utf-8'
+                }
+            $updatedAccountGoogle = Invoke-RestMethod @splatUpdateParams
+            $outputContext.Data = $updatedAccountGoogle | ConvertTo-HelloIDAccountObject
             $outputContext.Success = $false
             $outputContext.AuditLogs.Add([PSCustomObject]@{
                     Message = "GoogleWS account with accountReference: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
