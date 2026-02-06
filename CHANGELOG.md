@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com), and this project adheres to [Semantic Versioning](https://semver.org).
 
-## [1.1.2] - 05-02-2026
+## [1.1.2] - 06-02-2026
 
 ### Changed
 - Updated account update to retrieve account information when there are no updates so account data is not cleared.
