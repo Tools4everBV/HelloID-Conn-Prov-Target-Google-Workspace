@@ -16,7 +16,7 @@ All notable changes to this project will be documented in this file. The format 
   - `DefaultDomain`: Now clarifies usage for resource creation and group sub-permissions.
   - `ParentOrgUnitPath`: Now clarifies usage for organizational unit resource creation.
 - Improved character limit handling for `displayName` and `description` fields (max 100 characters).
-- Enhanced logging and error handling across all scripts.
+- Moved logging statements outside of dry-run checks for better auditability.
 
 ### Fixed
 - Improved handling of organizational unit changes during account updates.
