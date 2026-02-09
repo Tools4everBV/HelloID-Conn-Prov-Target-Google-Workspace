@@ -153,7 +153,12 @@ try {
     }
 
     if ($null -ne $correlatedAccount) {
-        $action = 'DeleteAccount'
+        if ($actionContext.Configuration.deleteAccount -eq $true) {
+            $action = 'DeleteAccount'
+        }
+        else {
+            $action = "SkipDelete"
+        }
     }
     else {
         $action = 'NotFound'
@@ -162,8 +167,9 @@ try {
     # Process
     switch ($action) {
         'DeleteAccount' {
+            Write-Information "Deleting GoogleWS account with accountReference: [$($actionContext.References.Account)]"
+
             if (-not($actionContext.DryRun -eq $true)) {
-                Write-Information "Deleting GoogleWS account with accountReference: [$($actionContext.References.Account)]"
                 $splatUpdateParams = @{
                     Uri     = "https://www.googleapis.com/admin/directory/v1/users/$($actionContext.References.Account)"
                     Method  = 'DELETE'
@@ -185,11 +191,21 @@ try {
             break
         }
 
+        'SkipDelete' {
+            Write-Information "Skipped deleting GoogleWS account with accountReference: [$($actionContext.References.Account)]. Reason: Configuration option [DeleteAccount] is set to [$($actionContext.Configuration.deleteAccount)]."
+            $outputContext.Success = $true
+            $outputContext.AuditLogs.Add([PSCustomObject]@{
+                    Message = "Skipped deleting GoogleWS account with accountReference: [$($actionContext.References.Account)]. Reason: Configuration option [DeleteAccount] is set to [$($actionContext.Configuration.deleteAccount)]."
+                    IsError = $false
+                })
+            break
+        }
+
         'NotFound' {
             Write-Information "GoogleWS account: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
             $outputContext.Success = $true
             $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = "GoogleWS account: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
+                    Message = "GoogleWS account with accountReference: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
                     IsError = $false
                 })
             break
@@ -197,18 +213,20 @@ try {
     }
 }
 catch {
-    $outputContext.success = $false
+    $outputContext.Success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
-        $auditMessage = "Could not delete GoogleWS account. Error: $($errorObj.FriendlyMessage)"
-        Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
+        $auditMessage = "Could not create or correlate GoogleWS account. Error: $($errorObj.FriendlyMessage)"
+        $warningMessage = "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
     }
     else {
-        $auditMessage = "Could not delete GoogleWS account. Error: $($_.Exception.Message)"
-        Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+        $auditMessage = "Could not create or correlate GoogleWS account. Error: $($ex.Exception.Message)"
+        $warningMessage = "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
+
+    Write-Warning $warningMessage
     $outputContext.AuditLogs.Add([PSCustomObject]@{
             Message = $auditMessage
             IsError = $true
