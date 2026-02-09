@@ -3,6 +3,12 @@
 # PowerShell V2
 #################################################
 
+# Remove BuildingId from actionContext.Data if empty (as we do not want to update it with an empty value)
+if ([string]::IsNullOrEmpty($actionContext.Data.BuildingId)) {
+    Write-Information "Skipping update of [BuildingId]. Reason: The provided value is empty. The current configuration does not allow setting this with an empty value."
+    $actionContext.Data.PsObject.Properties.Remove("BuildingId")
+}
+
 # Enable TLS1.2
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
 
@@ -125,6 +131,20 @@ function ConvertTo-HelloIDAccountObject {
     )
 
     process {
+        # Extract location information from the Google Workspace user object
+        # Locations represent physical spaces where the user works
+        # Reference: https://developers.google.com/workspace/admin/directory/reference/rest/v1/users#Location
+        # To extract additional location properties, add them alongside buildingId
+        # Note: Currently supporting single location (selecting the first one from the locations array)
+        # To support multiple locations, modify the retrieval logic to loop through all locations
+        $buildingId = $null
+        if ($null -ne $GoogleAccountObject.locations) {
+            $location = $GoogleAccountObject.locations | Select-Object -First 1
+            if (-not [string]::IsNullOrEmpty($location)) {
+                $buildingId = $location.buildingId
+            }
+        }
+
         if ($null -ne $GoogleAccountObject.organizations) {
             foreach ($organization in $GoogleAccountObject.organizations ) {
                 switch ($organization.type) {
@@ -187,6 +207,7 @@ function ConvertTo-HelloIDAccountObject {
             PrimaryEmail               = "$($GoogleAccountObject.PrimaryEmail)"
             Title                      = "$title"
             WorkPhone                  = $workPhone
+            BuildingId                 = $buildingId
         }
         Write-Output $helloIdAccountObject
     }
@@ -210,6 +231,26 @@ function ConvertTo-GoogleAccountUpdateObject {
 
     process {
         $googleAccountUpdateObject = [PSCustomObject] @{}
+
+        # Build the user's location information
+        # Locations represent physical spaces where the user works (e.g., desk locations, buildings)
+        # Reference: https://developers.google.com/workspace/admin/directory/reference/rest/v1/users#Location
+        # Note: Currently supporting single location (selecting the first one during update)
+        if (('BuildingId' -in $PropertiesToConvert.Name)) {
+            [array]$locations = ($PreviousGoogleAccountObject.locations)
+
+            if ($null -ne $PreviousGoogleAccountObject.locations) {
+                $locations | Add-Member -MemberType 'NoteProperty' -Name 'buildingId' -Value "$($HelloIDAccountObject.BuildingId)" -Force
+            }
+            else {
+                $locations = @{
+                    type       = "desk"
+                    area       = "desk"
+                    buildingId = "$($HelloIDAccountObject.BuildingId)"
+                }
+            }
+            $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'locations' -Value $locations -Force
+        }
 
         if ('Container' -in $PropertiesToConvert.Name) {
             $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'orgUnitPath' -Value $HelloIDAccountObject.Container
@@ -242,15 +283,25 @@ function ConvertTo-GoogleAccountUpdateObject {
             )
         }
 
+        # Update organization information (department and title) if changed
+        # Preserves existing organization data while updating the modified fields
         if (('Department' -in $PropertiesToConvert.Name) -or ('Title' -in $PropertiesToConvert.Name)) {
-            $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'organizations' -Value @(
-                @{
+            [array]$organizations = ($PreviousGoogleAccountObject.organizations)
+
+            if ($null -ne $PreviousGoogleAccountObject.organizations) {
+                $organizations | Add-Member -MemberType 'NoteProperty' -Name 'title' -Value "$($HelloIDAccountObject.Title)" -Force
+                $organizations | Add-Member -MemberType 'NoteProperty' -Name 'department' -Value "$($HelloIDAccountObject.Department)" -Force
+            }
+            else {
+                $organizations = @{
                     title      = "$($HelloIDAccountObject.Title)"
                     department = "$($HelloIDAccountObject.Department)"
                     type       = 'work'
                 }
-            )
+            }
+            $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'organizations' -Value $organizations -Force
         }
+
 
         if (('FamilyName' -in $PropertiesToConvert.Name) -or ('GivenName' -in $PropertiesToConvert.Name)) {
             $name = @{
@@ -260,33 +311,35 @@ function ConvertTo-GoogleAccountUpdateObject {
             $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'name' -Value $name
         }
 
-        [array]$phones = ($PreviousGoogleAccountObject.phones)
-        $phoneTypes = @{
-            MobilePhone = 'mobile'
-            WorkPhone   = 'work'
-        }
+        if (('MobilePhone' -in $PropertiesToConvert.Name) -or ('WorkPhone' -in $PropertiesToConvert.Name)) {
+            [array]$phones = ($PreviousGoogleAccountObject.phones)
+            $phoneTypes = @{
+                MobilePhone = 'mobile'
+                WorkPhone   = 'work'
+            }
 
-        # Update the phone numbers list by updating existing numbers, adding new ones, and removing any empty entries.
-        foreach ($property in $phoneTypes.Keys) {
-            if ($property -in $PropertiesToConvert.Name) {
-                $objectToUpdate = $phones | Where-Object { $_.type -eq ($property -split 'Phone')[0] }
-                if ($null -ne $objectToUpdate) {
-                    if ([System.String]::IsNullOrEmpty($HelloIDAccountObject.$property)) {
-                        $phones = $phones | Where-Object { $_.type -ne ($property -split 'Phone')[0] }
+            # Update the phone numbers list by updating existing numbers, adding new ones, and removing any empty entries.
+            foreach ($property in $phoneTypes.Keys) {
+                if ($property -in $PropertiesToConvert.Name) {
+                    $objectToUpdate = $phones | Where-Object { $_.type -eq ($property -split 'Phone')[0] }
+                    if ($null -ne $objectToUpdate) {
+                        if ([System.String]::IsNullOrEmpty($HelloIDAccountObject.$property)) {
+                            $phones = $phones | Where-Object { $_.type -ne ($property -split 'Phone')[0] }
+                        }
+                        else {
+                            $objectToUpdate.value = "$($HelloIDAccountObject.$property)"
+                        }
                     }
                     else {
-                        $objectToUpdate.value = "$($HelloIDAccountObject.$property)"
+                        [array]$phones += ([PSCustomObject]@{
+                                type  = $phoneTypes[$property]
+                                value = "$($HelloIDAccountObject.$property)"
+                            })
                     }
                 }
-                else {
-                    [array]$phones += ([PSCustomObject]@{
-                            type  = $phoneTypes[$property]
-                            value = "$($HelloIDAccountObject.$property)"
-                        })
-                }
             }
+            $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'phones' -Value $phones
         }
-        $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'phones' -Value $phones
 
         write-output $googleAccountUpdateObject
     }
@@ -360,16 +413,18 @@ try {
             Write-Information "Account property(s) required to update: $($propertiesChanged.Name -join ', ')"
             $googleAccountUpdateObject = ConvertTo-GoogleAccountUpdateObject -HelloIDAccountObject $actionContext.Data -PropertiesToConvert $propertiesChanged -PreviousGoogleAccountObject $correlatedAccountGoogle
 
-            if (-not($actionContext.DryRun -eq $true)) {
-                Write-Information "Updating GoogleWS account with accountReference: [$($actionContext.References.Account)]"
-                $splatUpdateParams = @{
-                    Uri         = "https://www.googleapis.com/admin/directory/v1/users/$($actionContext.References.Account)"
-                    Method      = 'PUT'
-                    Body        = $googleAccountUpdateObject | ConvertTo-Json
-                    Headers     = $headers
-                    ContentType = 'application/json;charset=utf-8'
-                }
+            Write-Information "Updating GoogleWS account with accountReference: [$($actionContext.References.Account)]"
+            $splatUpdateParams = @{
+                Uri         = "https://www.googleapis.com/admin/directory/v1/users/$($actionContext.References.Account)"
+                # Use PUT instead of PATCH as Google API supports patch semantics, meaning that you only need to include the fields you wish to update. Fields that are not present in the request will be preserved, and fields set to null will be cleared.
+                # Docs: https://developers.google.com/workspace/admin/directory/reference/rest/v1/users/update 
+                Method      = 'PUT'
+                Body        = $googleAccountUpdateObject | ConvertTo-Json
+                Headers     = $headers
+                ContentType = 'application/json;charset=utf-8'
+            }
 
+            if (-not($actionContext.DryRun -eq $true)) {
                 $updatedAccountGoogle = Invoke-RestMethod @splatUpdateParams
                 $outputContext.Data = $updatedAccountGoogle | ConvertTo-HelloIDAccountObject
                 if ($propertiesChanged.Name -contains 'primaryEmail') {
@@ -418,13 +473,15 @@ catch {
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
-        $auditMessage = "Could not update GoogleWS account. Error: $($errorObj.FriendlyMessage)"
-        Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
+        $auditMessage = "Could not create or correlate GoogleWS account. Error: $($errorObj.FriendlyMessage)"
+        $warningMessage = "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
     }
     else {
-        $auditMessage = "Could not update GoogleWS account. Error: $($ex.Exception.Message)"
-        Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+        $auditMessage = "Could not create or correlate GoogleWS account. Error: $($ex.Exception.Message)"
+        $warningMessage = "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
+
+    Write-Warning $warningMessage
     $outputContext.AuditLogs.Add([PSCustomObject]@{
             Message = $auditMessage
             IsError = $true
