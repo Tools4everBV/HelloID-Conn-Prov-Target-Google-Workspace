@@ -177,6 +177,20 @@ function ConvertTo-HelloIDAccountObject {
     )
 
     process {
+        # Extract location information from the Google Workspace user object
+        # Locations represent physical spaces where the user works
+        # Reference: https://developers.google.com/workspace/admin/directory/reference/rest/v1/users#Location
+        # To extract additional location properties, add them alongside buildingId
+        # Note: Currently supporting single location (selecting the first one from the locations array)
+        # To support multiple locations, modify the retrieval logic to loop through all locations
+        $buildingId = $null
+        if ($null -ne $GoogleAccountObject.locations) {
+            $location = $GoogleAccountObject.locations | Select-Object -First 1
+            if (-not [string]::IsNullOrEmpty($location)) {
+                $buildingId = $location.buildingId
+            }
+        }
+
         if ($null -ne $GoogleAccountObject.organizations) {
             foreach ($organization in $GoogleAccountObject.organizations ) {
                 switch ($organization.type) {
@@ -239,6 +253,7 @@ function ConvertTo-HelloIDAccountObject {
             PrimaryEmail               = "$($GoogleAccountObject.PrimaryEmail)"
             Title                      = "$title"
             WorkPhone                  = $workPhone
+            BuildingId                 = $buildingId
         }
         Write-Output $helloIdAccountObject
     }
