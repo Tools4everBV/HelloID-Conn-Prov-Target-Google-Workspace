@@ -3,8 +3,11 @@
 > [!IMPORTANT]
 > This repository contains the connector and configuration code only. The implementer is responsible to acquire the connection details such as username, password, certificate, etc. You might even need to sign a contract or agreement with the supplier before implementing this connector. Please contact the client's application manager to coordinate the connector requirements.
 
+> [!WARNING]
+> **Version 2.0.0 Breaking Change in Permission Reference**: The `DisplayName` property has been removed from the permission identification object. As a result, HelloID will treat each permission as newly added, requiring you to reconfigure the permissions in the Business Rules.
+
 <p align="center">
-  <img src="https://www.tools4ever.nl/connector-logos/googleworkspace-logo.png">
+  <img src="https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-Google-Workspace/blob/main/Logo.png">
 </p>
 
 ## Table of contents
