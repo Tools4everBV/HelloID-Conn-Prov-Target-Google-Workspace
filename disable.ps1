@@ -23,7 +23,8 @@ function Resolve-GoogleWSError {
         }
         if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
             $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             if ($null -ne $ErrorObject.Exception.Response) {
                 $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
                 if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
@@ -35,10 +36,12 @@ function Resolve-GoogleWSError {
             $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
             if (-NOT([String]::IsNullOrEmpty(($errorDetailsObject.error | Select-Object -First 1).message))) {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error.message -join ', '
-            } else {
+            }
+            else {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
             }
-        } catch {
+        }
+        catch {
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
@@ -112,6 +115,97 @@ function Get-GoogleWSAccessToken {
         $PSCmdlet.ThrowTerminatingError($_)
     }
 }
+
+function ConvertTo-HelloIDAccountObject {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline = $True)]
+        [object]
+        $GoogleAccountObject
+    )
+
+    process {
+        # Extract location information from the Google Workspace user object
+        # Locations represent physical spaces where the user works
+        # Reference: https://developers.google.com/workspace/admin/directory/reference/rest/v1/users#Location
+        # To extract additional location properties, add them alongside buildingId
+        # Note: Currently supporting single location (selecting the first one from the locations array)
+        # To support multiple locations, modify the retrieval logic to loop through all locations
+        $buildingId = $null
+        if ($null -ne $GoogleAccountObject.locations) {
+            $location = $GoogleAccountObject.locations | Select-Object -First 1
+            if (-not [string]::IsNullOrEmpty($location)) {
+                $buildingId = $location.buildingId
+            }
+        }
+
+        if ($null -ne $GoogleAccountObject.organizations) {
+            foreach ($organization in $GoogleAccountObject.organizations ) {
+                switch ($organization.type) {
+                    'work' {
+                        $department = $organization.department
+                        $title = $organization.title
+                    }
+                }
+            }
+        }
+
+        if ($null -ne $GoogleAccountObject.externalIds) {
+            foreach ($externalId in $GoogleAccountObject.externalIds ) {
+                switch ($externalId.type) {
+                    'organization' {
+                        $externalId = $externalId.value
+                    }
+                }
+            }
+        }
+
+        if ($null -ne $GoogleAccountObject.relations) {
+            foreach ($relation in  $GoogleAccountObject.relations) {
+                if ($relation.type -eq 'manager') {
+                    $manager = $relation.value
+                    break
+                }
+            }
+        }
+
+        if ($GoogleAccountObject.IncludeInGlobalAddressList) {
+            $includeInGlobalAddressList = 'true'
+        }
+        else {
+            $includeInGlobalAddressList = 'false'
+        }
+
+        $mobilePhone = $null
+        $workPhone = $null
+        foreach ($phone in $GoogleAccountObject.phones ) {
+            switch ($phone.type) {
+                'mobile' {
+                    $mobilePhone = if ([string]::IsNullOrEmpty($phone.value)) { $null } else { $phone.value }
+                }
+                'work' {
+                    $workPhone = if ([string]::IsNullOrEmpty($phone.value)) { $null } else { $phone.value }
+                }
+            }
+        }
+
+        $helloIdAccountObject = [PSCustomObject] @{
+            Container                  = "$($GoogleAccountObject.orgUnitPath)"
+            Department                 = "$department"
+            ExternalID                 = "$externalId"
+            FamilyName                 = "$($GoogleAccountObject.name.familyName)"
+            GivenName                  = "$($GoogleAccountObject.name.givenName)"
+            IncludeInGlobalAddressList = "$includeInGlobalAddressList"
+            Manager                    = "$Manager"
+            MobilePhone                = $mobilePhone
+            PrimaryEmail               = "$($GoogleAccountObject.PrimaryEmail)"
+            Title                      = "$title"
+            WorkPhone                  = $workPhone
+            BuildingId                 = $buildingId
+        }
+        Write-Output $helloIdAccountObject
+    }
+}
 #endregion
 
 try {
@@ -141,7 +235,10 @@ try {
             Method  = 'GET'
             Headers = $headers
         }
-        $correlatedAccount = Invoke-RestMethod @splatGetUserParams
+        $correlatedAccountGoogle = Invoke-RestMethod @splatGetUserParams
+
+        $correlatedAccount = ConvertTo-HelloIDAccountObject -GoogleAccountObject $correlatedAccountGoogle
+        $outputContext.PreviousData = $correlatedAccount
     }
     catch {
         if ($_.Exception.Response.StatusCode -ne 404) {
@@ -151,42 +248,55 @@ try {
 
     if ($null -ne $correlatedAccount) {
         $action = 'DisableAccount'
-    } else {
+    }
+    else {
         $action = 'NotFound'
     }
 
     # Process
     switch ($action) {
         'DisableAccount' {
+            Write-Information "Disabling GoogleWS account with accountReference: [$($actionContext.References.Account)]"
             $disableAccountObj = @{
-                suspended = $true
+                suspended                  = $true
                 includeInGlobalAddressList = $false
             }
 
-            if (-not[string]::IsNullOrWhiteSpace($actionContext.Configuration.DisabledContainer)) {
-                $disableAccountObj | Add-Member -MemberType 'NoteProperty' -Name 'orgUnitPath' -Value $actionContext.Configuration.DisabledContainer
+            if ([string]::IsNullOrWhiteSpace($actionContext.Configuration.DisabledContainer)) {
+                $orgUnitPath = ($actionContext.Data.Container)
+            }
+            else {
+                $orgUnitPath = $actionContext.Configuration.DisabledContainer
+            }
+
+            if (-not[string]::IsNullOrWhiteSpace($orgUnitPath)) {
+                $disableAccountObj | Add-Member -MemberType 'NoteProperty' -Name 'orgUnitPath' -Value $orgUnitPath
             }
 
             if (-not($actionContext.DryRun -eq $true)) {
-                Write-Information "Disabling GoogleWS account with accountReference: [$($actionContext.References.Account)]"
                 $splatDisableParams = @{
                     Uri         = "https://www.googleapis.com/admin/directory/v1/users/$($actionContext.References.Account)"
-                    Method      = 'PUT'
+                    Method      = 'PATCH'
                     Body        = $disableAccountObj | ConvertTo-Json
                     Headers     = $headers
-                    ContentType = 'application/json;charset=utf-8'
+                    ContentType = 'application/json'
                 }
-                $null = Invoke-RestMethod @splatDisableParams
-                if ([string]::IsNullOrWhiteSpace($actionContext.Configuration.DisabledContainer)) {
+                $disabledAccountGoogle = Invoke-RestMethod @splatDisableParams
+                $outputContext.Data = $disabledAccountGoogle | ConvertTo-HelloIDAccountObject
+
+                if ([string]::IsNullOrWhiteSpace($orgUnitPath)) {
                     $auditLogMessage = "Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful"
-                } else {
-                    $auditLogMessage = "Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful. Account has been moved to OU:[$($actionContext.Configuration.DisabledContainer)]"
                 }
-            } else {
-                if ([string]::IsNullOrWhiteSpace($actionContext.Configuration.DisabledContainer)){
+                else {
+                    $auditLogMessage = "Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful. Account has been moved to OU:[$($orgUnitPath)]"
+                }
+            }
+            else {
+                if ([string]::IsNullOrWhiteSpace($orgUnitPath)) {
                     $auditLogMessage = "[DryRun] Disable GoogleWS account with accountReference: [$($actionContext.References.Account)], will be executed during enforcement"
-                } else{
-                    $auditLogMessage =  "[DryRun] Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] and move account to OU: [$($actionContext.Configuration.DisabledContainer)] will be executed during enforcement"
+                }
+                else {
+                    $auditLogMessage = "[DryRun] Disable GoogleWS account with accountReference: [$($actionContext.References.Account)] and move account to OU: [$($orgUnitPath)] will be executed during enforcement"
                 }
             }
 
@@ -201,28 +311,32 @@ try {
 
         'NotFound' {
             Write-Information "GoogleWS account: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
-            $outputContext.Success = $true
+            $outputContext.Success = $false
             $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = "GoogleWS account: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
-                    IsError = $false
+                    Message = "GoogleWS account with accountReference: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
+                    IsError = $true
                 })
             break
         }
     }
-} catch {
-    $outputContext.success = $false
+}
+catch {
+    $outputContext.Success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
-        $auditMessage = "Could not disable GoogleWS account. Error: $($errorObj.FriendlyMessage)"
-        Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
-    } else {
-        $auditMessage = "Could not disable GoogleWS account. Error: $($_.Exception.Message)"
-        Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+        $auditMessage = "Could not create or correlate GoogleWS account. Error: $($errorObj.FriendlyMessage)"
+        $warningMessage = "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
     }
+    else {
+        $auditMessage = "Could not create or correlate GoogleWS account. Error: $($ex.Exception.Message)"
+        $warningMessage = "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+    }
+
+    Write-Warning $warningMessage
     $outputContext.AuditLogs.Add([PSCustomObject]@{
-        Message = $auditMessage
-        IsError = $true
-    })
+            Message = $auditMessage
+            IsError = $true
+        })
 }

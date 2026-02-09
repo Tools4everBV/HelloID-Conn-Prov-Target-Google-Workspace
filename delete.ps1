@@ -23,7 +23,8 @@ function Resolve-GoogleWSError {
         }
         if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
             $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             if ($null -ne $ErrorObject.Exception.Response) {
                 $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
                 if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
@@ -35,10 +36,12 @@ function Resolve-GoogleWSError {
             $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
             if (-NOT([String]::IsNullOrEmpty(($errorDetailsObject.error | Select-Object -First 1).message))) {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error.message -join ', '
-            } else {
+            }
+            else {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
             }
-        } catch {
+        }
+        catch {
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
@@ -150,29 +153,49 @@ try {
     }
 
     if ($null -ne $correlatedAccount) {
-        $action = 'DeleteAccount'
-    } else {
+        if ($actionContext.Configuration.deleteAccount -eq $true) {
+            $action = 'DeleteAccount'
+        }
+        else {
+            $action = "SkipDelete"
+        }
+    }
+    else {
         $action = 'NotFound'
     }
 
     # Process
     switch ($action) {
         'DeleteAccount' {
+            Write-Information "Deleting GoogleWS account with accountReference: [$($actionContext.References.Account)]"
+
             if (-not($actionContext.DryRun -eq $true)) {
                 $splatUpdateParams = @{
-                    Uri         = "https://www.googleapis.com/admin/directory/v1/users/$($actionContext.References.Account)"
-                    Method      = 'DELETE'
-                    Headers     = $headers
+                    Uri     = "https://www.googleapis.com/admin/directory/v1/users/$($actionContext.References.Account)"
+                    Method  = 'DELETE'
+                    Headers = $headers
                 }
-                Write-Information "Deleting GoogleWS account with accountReference: [$($actionContext.References.Account)]"
                 $null = Invoke-RestMethod @splatUpdateParams
-            } else {
-                Write-Information "[DryRun] Delete GoogleWS account with AccountReference: [$($actionContext.References.Account)], will be executed during enforcement"
+                $auditLogMessage = "Delete GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful"
+            }
+            else {
+                $auditLogMessage = "[DryRun] Delete GoogleWS account with AccountReference: [$($actionContext.References.Account)], will be executed during enforcement"
             }
 
+            Write-Information $auditLogMessage
             $outputContext.Success = $true
             $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = 'Delete account was successful'
+                    Message = $auditLogMessage
+                    IsError = $false
+                })
+            break
+        }
+
+        'SkipDelete' {
+            Write-Information "Skipped deleting GoogleWS account with accountReference: [$($actionContext.References.Account)]. Reason: Configuration option [DeleteAccount] is set to [$($actionContext.Configuration.deleteAccount)]."
+            $outputContext.Success = $true
+            $outputContext.AuditLogs.Add([PSCustomObject]@{
+                    Message = "Skipped deleting GoogleWS account with accountReference: [$($actionContext.References.Account)]. Reason: Configuration option [DeleteAccount] is set to [$($actionContext.Configuration.deleteAccount)]."
                     IsError = $false
                 })
             break
@@ -182,26 +205,30 @@ try {
             Write-Information "GoogleWS account: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
             $outputContext.Success = $true
             $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = "GoogleWS account: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
+                    Message = "GoogleWS account with accountReference: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
                     IsError = $false
                 })
             break
         }
     }
-} catch {
-    $outputContext.success = $false
+}
+catch {
+    $outputContext.Success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
-        $auditMessage = "Could not delete GoogleWS account. Error: $($errorObj.FriendlyMessage)"
-        Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
-    } else {
-        $auditMessage = "Could not delete GoogleWS account. Error: $($_.Exception.Message)"
-        Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+        $auditMessage = "Could not create or correlate GoogleWS account. Error: $($errorObj.FriendlyMessage)"
+        $warningMessage = "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
     }
+    else {
+        $auditMessage = "Could not create or correlate GoogleWS account. Error: $($ex.Exception.Message)"
+        $warningMessage = "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+    }
+
+    Write-Warning $warningMessage
     $outputContext.AuditLogs.Add([PSCustomObject]@{
-        Message = $auditMessage
-        IsError = $true
-    })
+            Message = $auditMessage
+            IsError = $true
+        })
 }

@@ -106,7 +106,7 @@
     "defaultValue": "",
     "templateOptions": {
       "label": "DefaultDomain",
-      "description": "The primary domain that is automatically assigned when you set up a Google Workspace environment.",
+      "description": "The primary domain that is automatically assigned when you set up a Google Workspace environment. Used for resource creation and subpermissions of groups.",
       "required": false
     }
   },
@@ -116,7 +116,7 @@
     "defaultValue": "/",
     "templateOptions": {
       "label": "ParentOrgUnitPath",
-      "description": "The organizational unit path under which new organizational units will be created. Use '/' for top-level OUs or specify an existing path (e.g., '/ParentContainer').",
+      "description": "The organizational unit path under which new organizational units will be created. Use '/' for top-level OUs or specify an existing path (e.g., '/ParentContainer').  Used for resource creation of organizational units.",
       "required": false
     }
   }

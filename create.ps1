@@ -23,7 +23,8 @@ function Resolve-GoogleWSError {
         }
         if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
             $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             if ($null -ne $ErrorObject.Exception.Response) {
                 $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
                 if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
@@ -35,15 +36,18 @@ function Resolve-GoogleWSError {
             $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
             if (-NOT([String]::IsNullOrEmpty(($errorDetailsObject.error | Select-Object -First 1).message))) {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error.message -join ', '
-            } else {
+            }
+            else {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
             }
-        } catch {
+        }
+        catch {
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
     }
 }
+
 function Get-GoogleWSAccessToken {
     [CmdletBinding()]
     param (
@@ -121,6 +125,19 @@ function New-GoogleAccountObject {
     $sHA1Hash = [System.Security.Cryptography.HashAlgorithm]::Create("SHA1").ComputeHash($passwordBytes)
     $sHA1HashString = [BitConverter]::ToString($SHA1Hash) -replace '-'
 
+    # Build the user's location information
+    # Locations represent physical spaces where the user works (e.g., desk locations, buildings)
+    # Reference: https://developers.google.com/workspace/admin/directory/reference/rest/v1/users#Location
+    # Note: Currently supporting single location (selecting the first one during retrieval)
+    $locations = @()
+    if (-not [string]::IsNullOrWhiteSpace($actionContext.Data.BuildingId)) {
+        $locations = @(@{
+                type       = "desk"
+                area       = "desk"
+                buildingId = "$($actionContext.Data.BuildingId)"
+            })
+    }
+
     $organizations = @()
     if (-not [string]::IsNullOrWhiteSpace($actionContext.Data.Department)) {
         $organizations = @(@{
@@ -145,7 +162,7 @@ function New-GoogleAccountObject {
     }
 
     $relations = @()
-    if ($actionContext.Configuration.SetPrimaryManagerOnCreate -eq $tue){
+    if ($actionContext.Configuration.SetPrimaryManagerOnCreate -eq $tue) {
         if (-not [string]::IsNullOrWhiteSpace($actionContext.Data.Manager)) {
             $relations = @(@{
                     type  = "manager"
@@ -180,7 +197,7 @@ function New-GoogleAccountObject {
         primaryEmail               = $actionContext.Data.PrimaryEmail
         relations                  = $relations
         Suspended                  = $true
-
+        locations                  = $locations
     }
     write-output $account
 }
@@ -194,6 +211,20 @@ function ConvertTo-HelloIDAccountObject {
     )
 
     process {
+        # Extract location information from the Google Workspace user object
+        # Locations represent physical spaces where the user works
+        # Reference: https://developers.google.com/workspace/admin/directory/reference/rest/v1/users#Location
+        # To extract additional location properties, add them alongside buildingId
+        # Note: Currently supporting single location (selecting the first one from the locations array)
+        # To support multiple locations, modify the retrieval logic to loop through all locations
+        $buildingId = $null
+        if ($null -ne $GoogleAccountObject.locations) {
+            $location = $GoogleAccountObject.locations | Select-Object -First 1
+            if (-not [string]::IsNullOrEmpty($location)) {
+                $buildingId = $location.buildingId
+            }
+        }
+
         if ($null -ne $GoogleAccountObject.organizations) {
             foreach ($organization in $GoogleAccountObject.organizations ) {
                 switch ($organization.type) {
@@ -226,7 +257,8 @@ function ConvertTo-HelloIDAccountObject {
 
         if ($GoogleAccountObject.IncludeInGlobalAddressList) {
             $includeInGlobalAddressList = 'true'
-        } else {
+        }
+        else {
             $includeInGlobalAddressList = 'false'
         }
 
@@ -255,6 +287,7 @@ function ConvertTo-HelloIDAccountObject {
             PrimaryEmail               = "$($GoogleAccountObject.PrimaryEmail)"
             Title                      = "$title"
             WorkPhone                  = $workPhone
+            BuildingId                 = $buildingId
         }
         Write-Output $helloIdAccountObject
     }
@@ -301,7 +334,8 @@ try {
                 ContentType = 'application/x-www-form-urlencoded'
             }
             $correlatedAccount = Invoke-RestMethod @splatGetUserParams
-        } catch {
+        }
+        catch {
             if ($_.Exception.Response.StatusCode -ne 404) {
                 throw
             }
@@ -323,6 +357,7 @@ try {
     # Process
     switch ($action) {
         'CreateAccount' {
+            Write-Information 'Creating and correlating GoogleWS account'
             $account = New-GoogleAccountObject
             $splatCreateParams = @{
                 Uri         = "https://www.googleapis.com/admin/directory/v1/users"
@@ -333,9 +368,7 @@ try {
             }
 
             if (-not($actionContext.DryRun -eq $true)) {
-                Write-Information 'Creating and correlating GoogleWS account'
                 $createdAccount = Invoke-RestMethod @splatCreateParams
-                $outputContext.Data = $createdAccount | ConvertTo-HelloIDAccountObject
                 $outputContext.AccountReference = $createdAccount.id
                 $auditLogMessage = "Create account was successful. AccountReference is: [$($outputContext.AccountReference)]. Account created in OU: [$($account.orgUnitPath)]"
             }
@@ -366,18 +399,22 @@ try {
             Message = $auditLogMessage
             IsError = $false
         })
-} catch {
+}
+catch {
     $outputContext.success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
         $auditMessage = "Could not create or correlate GoogleWS account. Error: $($errorObj.FriendlyMessage)"
-        Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
-    } else {
-        $auditMessage = "Could not create or correlate GoogleWS account. Error: $($ex.Exception.Message)"
-        Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+        $warningMessage = "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
     }
+    else {
+        $auditMessage = "Could not create or correlate GoogleWS account. Error: $($ex.Exception.Message)"
+        $warningMessage = "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+    }
+
+    Write-Warning $warningMessage
     $outputContext.AuditLogs.Add([PSCustomObject]@{
             Message = $auditMessage
             IsError = $true

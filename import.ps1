@@ -23,7 +23,8 @@ function Resolve-GoogleWSError {
         }
         if (-not [string]::IsNullOrEmpty($ErrorObject.ErrorDetails.Message)) {
             $httpErrorObj.ErrorDetails = $ErrorObject.ErrorDetails.Message
-        } elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
+        }
+        elseif ($ErrorObject.Exception.GetType().FullName -eq 'System.Net.WebException') {
             if ($null -ne $ErrorObject.Exception.Response) {
                 $streamReaderResponse = [System.IO.StreamReader]::new($ErrorObject.Exception.Response.GetResponseStream()).ReadToEnd()
                 if (-not [string]::IsNullOrEmpty($streamReaderResponse)) {
@@ -35,10 +36,12 @@ function Resolve-GoogleWSError {
             $errorDetailsObject = ($httpErrorObj.ErrorDetails | ConvertFrom-Json)
             if (-NOT([String]::IsNullOrEmpty(($errorDetailsObject.error | Select-Object -First 1).message))) {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error.message -join ', '
-            } else {
+            }
+            else {
                 $httpErrorObj.FriendlyMessage = $errorDetailsObject.error_description
             }
-        } catch {
+        }
+        catch {
             $httpErrorObj.FriendlyMessage = $httpErrorObj.ErrorDetails
         }
         Write-Output $httpErrorObj
@@ -106,7 +109,8 @@ function Get-GoogleWSAccessToken {
         }
         $response = Invoke-RestMethod @splatParams
         $response.access_token
-    } catch {
+    }
+    catch {
         $PSCmdlet.ThrowTerminatingError($_)
     }
 }
@@ -157,7 +161,8 @@ function Invoke-GoogleWSRestMethodWithPaging {
 
             } until ($null -eq $partialResult.nextPageToken)
             Write-Output $returnList -NoEnumerate
-        } catch {
+        }
+        catch {
             $PSCmdlet.ThrowTerminatingError($_)
         }
     }
@@ -172,6 +177,20 @@ function ConvertTo-HelloIDAccountObject {
     )
 
     process {
+        # Extract location information from the Google Workspace user object
+        # Locations represent physical spaces where the user works
+        # Reference: https://developers.google.com/workspace/admin/directory/reference/rest/v1/users#Location
+        # To extract additional location properties, add them alongside buildingId
+        # Note: Currently supporting single location (selecting the first one from the locations array)
+        # To support multiple locations, modify the retrieval logic to loop through all locations
+        $buildingId = $null
+        if ($null -ne $GoogleAccountObject.locations) {
+            $location = $GoogleAccountObject.locations | Select-Object -First 1
+            if (-not [string]::IsNullOrEmpty($location)) {
+                $buildingId = $location.buildingId
+            }
+        }
+
         if ($null -ne $GoogleAccountObject.organizations) {
             foreach ($organization in $GoogleAccountObject.organizations ) {
                 switch ($organization.type) {
@@ -204,7 +223,8 @@ function ConvertTo-HelloIDAccountObject {
 
         if ($GoogleAccountObject.IncludeInGlobalAddressList) {
             $includeInGlobalAddressList = 'true'
-        } else {
+        }
+        else {
             $includeInGlobalAddressList = 'false'
         }
 
@@ -233,6 +253,7 @@ function ConvertTo-HelloIDAccountObject {
             PrimaryEmail               = "$($GoogleAccountObject.PrimaryEmail)"
             Title                      = "$title"
             WorkPhone                  = $workPhone
+            BuildingId                 = $buildingId
         }
         Write-Output $helloIdAccountObject
     }
@@ -285,14 +306,16 @@ try {
     }
 
     Write-Information 'Account data import completed'
-} catch {
+}
+catch {
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
         Write-Error "Could not import Google accounts. Error: $($errorObj.FriendlyMessage)"
-    } else {
+    }
+    else {
         Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
         Write-Error "Could not import Google accounts. Error: $($ex.Exception.Message)"
     }
