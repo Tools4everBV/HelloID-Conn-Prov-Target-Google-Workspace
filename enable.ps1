@@ -241,17 +241,24 @@ try {
     # Process
     switch ($action) {
         'EnableAccount' {
+            Write-Information "Enabling GoogleWS account with accountReference: [$($actionContext.References.Account)]"
             $enableAccountObj = @{
                 suspended                  = $false
                 includeInGlobalAddressList = $true
             }
 
-            if (-not[string]::IsNullOrWhiteSpace($actionContext.Data.Container)) {
-                $enableAccountObj | Add-Member -MemberType 'NoteProperty' -Name 'orgUnitPath' -Value $actionContext.Data.Container
+            if ([string]::IsNullOrWhiteSpace($actionContext.Configuration.EnabledContainer)) {
+                $orgUnitPath = ($actionContext.Data.Container)
+            }
+            else {
+                $orgUnitPath = $actionContext.Configuration.EnabledContainer
+            }
+
+            if (-not[string]::IsNullOrWhiteSpace($orgUnitPath)) {
+                $enableAccountObj | Add-Member -MemberType 'NoteProperty' -Name 'orgUnitPath' -Value $orgUnitPath
             }
 
             if (-not($actionContext.DryRun -eq $true)) {
-                Write-Information "Enabling GoogleWS account with accountReference: [$($actionContext.References.Account)]"
                 $splatEnableParams = @{
                     Uri         = "https://www.googleapis.com/admin/directory/v1/users/$($actionContext.References.Account)"
                     Method      = 'PUT'
@@ -262,19 +269,19 @@ try {
                 $enabledAccountGoogle = Invoke-RestMethod @splatEnableParams
                 $outputContext.Data = $enabledAccountGoogle | ConvertTo-HelloIDAccountObject
 
-                if ([string]::IsNullOrWhiteSpace($actionContext.Data.Container)) {
+                if ([string]::IsNullOrWhiteSpace($orgUnitPath)) {
                     $auditLogMessage = "Enable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful"
                 }
                 else {
-                    $auditLogMessage = "Enable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful. Account has been moved to OU: [$($actionContext.Data.Container)]"
+                    $auditLogMessage = "Enable GoogleWS account with accountReference: [$($actionContext.References.Account)] was successful. Account has been moved to OU: [$($orgUnitPath)]"
                 }
             }
             else {
-                if ([string]::IsNullOrWhiteSpace($actionContext.Data.Container)) {
+                if ([string]::IsNullOrWhiteSpace($orgUnitPath)) {
                     $auditLogMessage = "[DryRun] Enable GoogleWS account with accountReference: [$($actionContext.References.Account)], will be executed during enforcement"
                 }
                 else {
-                    $auditLogMessage = "[DryRun] Enable GoogleWS account with accountReference: [$($actionContext.References.Account)] and move account to OU: [$($actionContext.Data.Container)] will be executed during enforcement"
+                    $auditLogMessage = "[DryRun] Enable GoogleWS account with accountReference: [$($actionContext.References.Account)] and move account to OU: [$($orgUnitPath)] will be executed during enforcement"
                 }
             }
 
@@ -291,27 +298,28 @@ try {
             Write-Information "GoogleWS account: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
             $outputContext.Success = $false
             $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = "GoogleWS account: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
+                    Message = "GoogleWS account with accountReference: [$($actionContext.References.Account)] could not be found, possibly indicating that it may have been deleted"
                     IsError = $true
                 })
             break
         }
     }
-
 }
 catch {
-    $outputContext.success = $false
+    $outputContext.Success = $false
     $ex = $PSItem
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
-        $auditMessage = "Could not enable GoogleWS account. Error: $($errorObj.FriendlyMessage)"
-        Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
+        $auditMessage = "Could not create or correlate GoogleWS account. Error: $($errorObj.FriendlyMessage)"
+        $warningMessage = "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
     }
     else {
-        $auditMessage = "Could not enable GoogleWS account. Error: $($_.Exception.Message)"
-        Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+        $auditMessage = "Could not create or correlate GoogleWS account. Error: $($ex.Exception.Message)"
+        $warningMessage = "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
+
+    Write-Warning $warningMessage
     $outputContext.AuditLogs.Add([PSCustomObject]@{
             Message = $auditMessage
             IsError = $true
