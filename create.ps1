@@ -357,6 +357,7 @@ try {
     # Process
     switch ($action) {
         'CreateAccount' {
+            Write-Information 'Creating and correlating GoogleWS account'
             $account = New-GoogleAccountObject
             $splatCreateParams = @{
                 Uri         = "https://www.googleapis.com/admin/directory/v1/users"
@@ -367,7 +368,6 @@ try {
             }
 
             if (-not($actionContext.DryRun -eq $true)) {
-                Write-Information 'Creating and correlating GoogleWS account'
                 $createdAccount = Invoke-RestMethod @splatCreateParams
                 $outputContext.AccountReference = $createdAccount.id
                 $auditLogMessage = "Create account was successful. AccountReference is: [$($outputContext.AccountReference)]. Account created in OU: [$($account.orgUnitPath)]"
@@ -407,14 +407,14 @@ catch {
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
         $auditMessage = "Could not create or correlate GoogleWS account. Error: $($errorObj.FriendlyMessage)"
-        $warningMesasge = "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
+        $warningMessage = "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
     }
     else {
         $auditMessage = "Could not create or correlate GoogleWS account. Error: $($ex.Exception.Message)"
-        $warningMesasge = "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
+        $warningMessage = "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
     }
 
-    Write-Warning $warningMesasge
+    Write-Warning $warningMessage
     $outputContext.AuditLogs.Add([PSCustomObject]@{
             Message = $auditMessage
             IsError = $true
