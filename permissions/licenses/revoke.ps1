@@ -161,7 +161,7 @@ try {
     switch ($action) {
         'RevokePermission' {
             if (-not($actionContext.DryRun -eq $true)) {
-                Write-Information "Revoking GoogleWS permission license: [$($actionContext.References.Permission.DisplayName)] - [$($actionContext.References.Permission.Reference)]"
+                Write-Information "Revoking GoogleWS permission license: [$($actionContext.PermissionDisplayName)] - [$($actionContext.References.Permission.Reference)]"
                 $splatRemoveLicenseParams = @{
                     Uri         = "https://www.googleapis.com/apps/licensing/v1/product/Google-Apps/sku/$($actionContext.References.Permission.Reference)/user/$($actionContext.References.Account)"
                     Method      = 'DELETE'
@@ -169,12 +169,12 @@ try {
                 }
                 $null = Invoke-RestMethod @splatRemoveLicenseParams
             } else {
-                Write-Information "[DryRun] Revoke GoogleWS permission license: [$($actionContext.References.Permission.DisplayName)] - [$($actionContext.References.Permission.Reference)], will be executed during enforcement"
+                Write-Information "[DryRun] Revoke GoogleWS permission license: [$($actionContext.PermissionDisplayName)] - [$($actionContext.References.Permission.Reference)], will be executed during enforcement"
             }
 
             $outputContext.Success = $true
             $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = "Revoke permission license [$($actionContext.References.Permission.DisplayName)] was successful"
+                    Message = "Revoke permission license [$($actionContext.PermissionDisplayName)] was successful"
                     IsError = $false
                 })
         }
