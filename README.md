@@ -43,6 +43,12 @@
 
 _HelloID-Conn-Prov-Target-GoogleWorkSpace_ is a _target_ connector. _GoogleWS_ provides a set of REST API's that allow you to programmatically interact with its data.
 
+### HelloID Icon URL
+URL of the icon used for the HelloID Provisioning target system.
+```
+https://raw.githubusercontent.com/Tools4everBV/HelloID-Conn-Prov-Target-Google-Workspace/refs/heads/main/Icon.png
+```
+
 ## Getting started
 
 ### Prerequisites
@@ -126,6 +132,7 @@ The following lifecycle actions are available:
 | permissions/drives/permissions.ps1        | Retrieves all available drives.                                                                             |
 | permissions/drives/subPermissions.ps1        | Grants and revokes drives to an account based on contract data (e.g. CostCenter)                                                                             |
 | resources/groups/resources.ps1              | Creates groups.                                                                                               |
+| resources/drives/resources.ps1              | Creates drives.                                                                                               |
 | resources/organizationalUnits/resources.ps1 | Creates organizational units.                                                                                 |
 | configuration.json                          | Contains the connection settings and general configuration for the connector.                                 |
 | fieldMapping.json                           | Defines mappings between person fields and target system person account fields.                               |
@@ -289,9 +296,6 @@ The API documentation can be found using the links below.
 
 > [!TIP]
 > _For more information on how to configure a HelloID PowerShell connector, please refer to our [documentation](https://docs.helloid.com/en/provisioning/target-systems/powershell-v2-target-systems.html) pages_.
-
-> [!TIP]
->  _If you need help, feel free to ask questions on our [forum](https://forum.helloid.com)_.
 
 ## HelloID docs
 

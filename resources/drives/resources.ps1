@@ -6,6 +6,13 @@
 # Enable TLS1.2
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
 
+# Script Mapping lookup values
+$scopes = @(
+    "https://www.googleapis.com/auth/admin.directory.group"
+    "https://www.googleapis.com/auth/admin.directory.user"
+    "https://www.googleapis.com/auth/drive"
+)
+
 #region functions
 function Resolve-GoogleWSError {
     [CmdletBinding()]
@@ -179,7 +186,7 @@ try {
     $splatGetGoogleWSTokenParams = @{
         Issuer                 = $actionContext.Configuration.Issuer
         Subject                = $actionContext.Configuration.Subject
-        Scopes                 = @('https://www.googleapis.com/auth/admin.directory.group')
+        Scopes                 = $scopes
         P12CertificateBase64   = $actionContext.Configuration.P12CertificateBase64
         P12CertificatePassword = $actionContext.Configuration.P12CertificatePassword
     }
@@ -189,47 +196,61 @@ try {
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
     $headers.Add('Authorization', "Bearer $($accessToken)")
 
-    Write-Information 'Retrieve existing GoogleWS groups'
-    $splatGetGroups = @{
-        Uri     = "https://www.googleapis.com/admin/directory/v1/groups?customer=my_customer"
+    Write-Information 'Retrieve GoogleWS drives'
+    $splatGetDrives = @{
+        Uri     = "https://www.googleapis.com/drive/v3/drives?useDomainAdminAccess=true"
         Method  = 'GET'
         Headers = $headers
     }
-    $googleGroups = Invoke-GoogleWSRestMethodWithPaging @splatGetGroups -CollectionName 'groups'
-    $googleGroupsGrouped = $googleGroups | Group-Object -Property email -AsHashTable -AsString
-    if ($null -eq $googleGroupsGrouped) {
-        $googleGroupsGrouped = @{}
+    $googleDrives = Invoke-GoogleWSRestMethodWithPaging @splatGetDrives -CollectionName 'drives'
+    $googleDrives | Add-Member -MemberType NoteProperty -Name "externalID" -Value $null -Force
+    foreach ($googleDrive in $googleDrives) {
+        if ($googleDrive.name -match '\|') {
+            $googleDrive.externalID = ($googleDrive.name -split '\|')[1].Trim()
+        }
+        else {
+            $googleDrive.externalID = $googleDrive.name 
+        }
     }
-    Write-Information "Existing GoogleWS Groups found [$($googleGroups.count)]"
+    $googleDrivesGrouped = $googleDrives | Select-Object id, name, externalID | Group-Object externalID -AsHashTable -AsString
+    if ($null -eq $googleDrivesGrouped) {
+        $googleDrivesGrouped = @{}
+    }
+    Write-Information "Existing GoogleWS Drives found [$($googleDrives.count)]"
 
     foreach ($resource in $resourceContext.SourceData) {
+       
         try {
             # Replace Spaces with underscore, # Remove Special Characters, except underscore, # Remove Double Underscores
-            $resource = Remove-StringLatinCharacters -String $resource
-            $emailFormatted = "$($resource -replace '\s', '_'  -replace '__', '_' )@$($actionContext.Configuration.DefaultDomain)"
+            $resourceDriveName = $resource.Name + " | " + $resource.externalID
 
-            if ( $null -eq ($googleGroupsGrouped["$($emailFormatted)"])) {
+            if ( $null -eq ($googleDrivesGrouped["$($resource.externalID)"])) {
                 if (-not ($actionContext.DryRun -eq $True)) {
-                    Write-Information "Create [$($resource)] GoogleWS Group"
-                    $splatSetGroup = @{
-                        Uri         = "https://www.googleapis.com/admin/directory/v1/groups"
-                        Method      = 'POST'
+                    Write-Information "Create [$($resourceDriveName)] GoogleWS Drive"
+                    # drives.create requires requestId (UUID) and body with name 
+                    $requestId = [guid]::NewGuid().ToString()
+                    $createDrivebody = @{ name = $resourceDriveName }                
+                    
+                    $createDriveSplatParams = @{
+                        Uri         = "https://www.googleapis.com/drive/v3/drives?requestId=$requestId"
                         Headers     = $headers
-                        ContentType = 'application/json;charset=utf-8'
-                        Body        = ([ordered]@{
-                                name  = $resource
-                                email = $emailFormatted
-                            }
-                        ) | ConvertTo-Json
+                        Method      = "POST"
+                        Body        = ($createDrivebody | ConvertTo-Json -Depth 10)
+                        ContentType = "application/json; charset=utf-8"
+                        Verbose     = $false 
+                        ErrorAction = "Stop"
                     }
-                    $null = Invoke-RestMethod @splatSetGroup
+
+                    $createDrive = Invoke-RestMethod @createDriveSplatParams
+
+                    $outputContext.AuditLogs.Add([PSCustomObject]@{
+                            Message = "Created GoogleWS Drive: [$($resourceDriveName)]"
+                            IsError = $false
+                        })
+
                 } else {
-                    Write-Information "[DryRun] Create GoogleWS [$($resource) - $($emailFormatted)] Group, will be executed during enforcement"
+                    Write-Information "[DryRun] Create GoogleWS [$($resourceDriveName)] drive, will be executed during enforcement"
                 }
-                $outputContext.AuditLogs.Add([PSCustomObject]@{
-                        Message = "Created GoogleWS Group: [$($resource) - $($emailFormatted)]"
-                        IsError = $false
-                    })
             }
         } catch {
             $outputContext.Success = $false
@@ -237,10 +258,10 @@ try {
             if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
                 $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
                 $errorObj = Resolve-GoogleWSError -ErrorObject $ex
-                $auditMessage = "Could not create GoogleWS [$($resource) - $($emailFormatted)] Group. Error: $($errorObj.FriendlyMessage)"
+                $auditMessage = "Could not create GoogleWS [$($resourceDriveName)] Drive. Error: $($errorObj.FriendlyMessage)"
                 Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
             } else {
-                $auditMessage = "Could not create GoogleWS [$($resource) - $($emailFormatted)] Group. Error: $($ex.Exception.Message)"
+                $auditMessage = "Could not create GoogleWS [$($resourceDriveName)] Drive. Error: $($ex.Exception.Message)"
                 Write-Warning "Error at Line '$($ex.InvocationInfo.ScriptLineNumber)': $($ex.InvocationInfo.Line). Error: $($ex.Exception.Message)"
             }
             $outputContext.AuditLogs.Add([PSCustomObject]@{
