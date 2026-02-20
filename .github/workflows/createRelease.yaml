@@ -1,9 +1,8 @@
-name: Workflow caller - create release
+name: Workflow caller - verify changelog updated 
 on:
   pull_request:
-    types: [closed]
+    types: [opened, synchronize]
 
 jobs:
   verify-changelog:
-    if: github.event.pull_request.merged == true
-    uses: Tools4everBV/.github/.github/workflows/createRelease.yaml@main
+    uses: Tools4everBV/.github/.github/workflows/verifyChangelog.yaml@main
