@@ -1,0 +1,53 @@
+[
+  {
+    "key": "Issuer",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "Issuer",
+      "description": "The client ID used to generate the token. Typically this is the  service account ID used for authentication.",
+      "required": true
+    }
+  },
+  {
+    "key": "Subject",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "Subject",
+      "description": "The user or service account on whose behalf the token is issued. Typically represents the admin account that has been authorized to perform actions on behalf of users or manage the Google Workspace domain.",
+      "required": true
+    }
+  },
+  {
+    "key": "P12CertificateBase64",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "P12CertificateBase64",
+      "description": "The Base64 encoded version of the P12 (PKCS #12) certificate. Refer to the readme for more information.",
+      "required": true
+    }
+  },
+  {
+    "key": "P12CertificatePassword",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "type": "password",
+      "label": "P12CertificatePassword",
+      "description": "The password used to protect the private key stored within the P12 (PKCS #12) certificate.",
+      "required": true
+    }
+  },
+    {
+    "key": "CustomerId",
+    "type": "input",
+    "defaultValue": "",
+    "templateOptions": {
+      "label": "CustomerId",
+      "description": "The Customer ID of the Google Environment. Only required for import licenses script. It can be found in the Google Admin Console under Account > Account Settings > Customer ID.",
+      "required": false
+    }
+  }
+]

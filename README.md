@@ -43,6 +43,12 @@
 
 _HelloID-Conn-Prov-Target-GoogleWorkSpace_ is a _target_ connector. _GoogleWS_ provides a set of REST API's that allow you to programmatically interact with its data.
 
+### HelloID Icon URL
+URL of the icon used for the HelloID Provisioning target system.
+```
+https://raw.githubusercontent.com/Tools4everBV/HelloID-Conn-Prov-Target-Google-Workspace/refs/heads/main/Icon.png
+```
+
 ## Getting started
 
 ### Prerequisites
@@ -121,7 +127,12 @@ The following lifecycle actions are available:
 | permissions/licenses/grantPermission.ps1    | Grants specific licenses to an account.                                                                       |
 | permissions/licenses/revokePermission.ps1   | Revokes specific licenses from an account.                                                                    |
 | permissions/licenses/permissions.ps1        | Retrieves all available licenses.                                                                             |
+| permissions/drives/grantPermission.ps1    | Grants specific drive to an account.                                                                       |
+| permissions/drives/revokePermission.ps1   | Revokes specific drive from an account.                                                                    |
+| permissions/drives/permissions.ps1        | Retrieves all available drives.                                                                             |
+| permissions/drives/subPermissions.ps1        | Grants and revokes drives to an account based on contract data (e.g. CostCenter)                                                                             |
 | resources/groups/resources.ps1              | Creates groups.                                                                                               |
+| resources/drives/resources.ps1              | Creates drives.                                                                                               |
 | resources/organizationalUnits/resources.ps1 | Creates organizational units.                                                                                 |
 | configuration.json                          | Contains the connection settings and general configuration for the connector.                                 |
 | fieldMapping.json                           | Defines mappings between person fields and target system person account fields.                               |
@@ -202,6 +213,19 @@ The _permissions_ script uses a predefined list of licenses.
 > [!WARNING]
 Please note that license assignment has not been fully tested due to their unavailability in the test environment.
 
+### Permissions - Drives
+
+#### Static permissions
+
+Static permissions include all permissions available in _Google Workspace_. These can be retrieved using the _/permissions/drives/permissions.ps1_ script.
+
+#### Dynamic permissions
+
+Dynamic permissions are groups created either by the resource script **or** by groups available in _Google Workspace_ with names corresponding to a contract property. Currently, this property is set to `CostCenter.ExternalID` within the _/permissions/drives/subPermissions.ps1_ script. Be aware that Google Drives doesn't support any additional attributes (for example, the CostCenter code) to register on the drive. Currently, the connector assumes the drive name ends with " | costcenterCode".
+
+> [!NOTE]
+Email address formatting is handled both in the resource script and within the dynamic permissions. Any changes to the formatting logic must be applied in both areas to maintain consistency.
+
 ### Resources - Groups
 
 - __Email address generation__<br>
@@ -272,9 +296,6 @@ The API documentation can be found using the links below.
 
 > [!TIP]
 > _For more information on how to configure a HelloID PowerShell connector, please refer to our [documentation](https://docs.helloid.com/en/provisioning/target-systems/powershell-v2-target-systems.html) pages_.
-
-> [!TIP]
->  _If you need help, feel free to ask questions on our [forum](https://forum.helloid.com)_.
 
 ## HelloID docs
 
