@@ -256,7 +256,7 @@ try {
     $desiredPermissions = @{}
     if (-Not($actionContext.Operation -eq "revoke")) {
         # Example: Contract Based Logic:
-        foreach ($contract in $personContext.Person.PrimaryContract) {
+        foreach ($contract in $personContext.Person.Contracts) {
 
             Write-Information "Contract: $($contract.ExternalId). In condition: $($contract.Context.InConditions)"
             if ($contract.Context.InConditions -OR ($actionContext.DryRun -eq $true)) {        
@@ -374,7 +374,7 @@ try {
 
             if (-Not($actionContext.DryRun -eq $true)) {
 
-                $setOrganizer = Invoke-RestMethod @addOrganizerSplatParams
+                $null = Invoke-RestMethod @addOrganizerSplatParams
 
                 $outputContext.AuditLogs.Add([PSCustomObject]@{
                         Action  = "GrantPermission"
@@ -397,7 +397,7 @@ catch {
     if ($($ex.Exception.GetType().FullName -eq 'Microsoft.PowerShell.Commands.HttpResponseException') -or
         $($ex.Exception.GetType().FullName -eq 'System.Net.WebException')) {
         $errorObj = Resolve-GoogleWSError -ErrorObject $ex
-        $auditMessage = "Could not manage GoogleWS permissions. Error: $($errorObj.FriendlyMessage)"
+        $auditMessage = "Error $actionMessage. Error: $($_.Exception.Message)"
         Write-Warning "Error at Line '$($errorObj.ScriptLineNumber)': $($errorObj.Line). Error: $($errorObj.ErrorDetails)"
     }
     else {

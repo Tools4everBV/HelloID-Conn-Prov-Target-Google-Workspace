@@ -1,5 +1,5 @@
 #################################################
-# HelloID-Conn-Prov-Target-GoogleWorkSpace-Create
+# HelloID-Conn-Prov-Target-GoogleWorkSpace-Create-Correlate
 # PowerShell V2
 #################################################
 
@@ -312,7 +312,6 @@ try {
         }
     }
 
-
     #region Calulate action
     if ($correlatedAccount.users.Count -eq 1) {
         $action = "CorrelateAccount"
@@ -324,14 +323,14 @@ try {
         $action = "NotFound"
     }
 
-
     # Process
     switch ($action) {
         'CorrelateAccount' {
             if (-not($actionContext.DryRun -eq $true)) {
                 Write-Information 'Correlating GoogleWS account'
                 $outputContext.AccountReference = "$($correlatedAccount.users.id)"
-                #$outputContext.Data = $correlatedAccount.PsObject.Copy()
+                #Enable scriptrule below if you want to save the account data
+                    #$outputContext.Data = $correlatedAccount.users[0] | ConvertTo-HelloIDAccountObject
                 $outputContext.AccountCorrelated = $true
                 $auditLogMessage = "Correlated to account with AccountReference: $($outputContext.AccountReference | ConvertTo-Json) on [$($correlationField)] = [$($correlationValue)]."
             }

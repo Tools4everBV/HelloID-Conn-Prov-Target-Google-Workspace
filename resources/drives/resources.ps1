@@ -241,7 +241,7 @@ try {
                         ErrorAction = "Stop"
                     }
 
-                    $createDrive = Invoke-RestMethod @createDriveSplatParams
+                    $null = Invoke-RestMethod @createDriveSplatParams
 
                     $outputContext.AuditLogs.Add([PSCustomObject]@{
                             Message = "Created GoogleWS Drive: [$($resourceDriveName)]"
