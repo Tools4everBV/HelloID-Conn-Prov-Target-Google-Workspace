@@ -201,7 +201,6 @@ try {
                 DisplayName    = $permission.email
                 Identification = @{
                     Reference = $permission.id
-                    DisplayName = $permission.email
                 }
             }
         )

@@ -4,7 +4,7 @@
 > This repository contains the connector and configuration code only. The implementer is responsible to acquire the connection details such as username, password, certificate, etc. You might even need to sign a contract or agreement with the supplier before implementing this connector. Please contact the client's application manager to coordinate the connector requirements.
 
 <p align="center">
-  <img src="https://www.tools4ever.nl/connector-logos/googleworkspace-logo.png">
+  <img src="https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-Google-Workspace/blob/main/Logo.png">
 </p>
 
 ## Table of contents
@@ -12,6 +12,7 @@
 - [HelloID-Conn-Prov-Target-GoogleWorkSpace](#helloid-conn-prov-target-googleworkspace)
   - [Table of contents](#table-of-contents)
   - [Introduction](#introduction)
+  - [Supported features](#supported-features)
   - [Getting started](#getting-started)
     - [Prerequisites](#prerequisites)
       - [Creating the Base64 Key from the `PKCS #12` Certificate](#creating-the-base64-key-from-the-pkcs-12-certificate)
@@ -43,11 +44,18 @@
 
 _HelloID-Conn-Prov-Target-GoogleWorkSpace_ is a _target_ connector. _GoogleWS_ provides a set of REST API's that allow you to programmatically interact with its data.
 
-### HelloID Icon URL
-URL of the icon used for the HelloID Provisioning target system.
-```
-https://raw.githubusercontent.com/Tools4everBV/HelloID-Conn-Prov-Target-Google-Workspace/refs/heads/main/Icon.png
-```
+## Supported features
+
+The following features are available:
+
+| Feature                                   | Supported | Remarks                                 |
+| ----------------------------------------- | --------- | --------------------------------------- |
+| **Account Lifecycle**                     | ✅         | Create, Update, Enable, Disable, Delete |
+| **Permissions**                           | ✅         | drives, groups and licenses             |
+| **Resources**                             | ✅         | drives, groups and organizationalUnits  |
+| **Entitlement Import: Accounts**          | ✅         | -                                       |
+| **Entitlement Import: Permissions**       | ✅         | Not for subPermissions                  |
+| **Governance Reconciliation Resolutions** | ✅         | -                                       |
 
 ## Getting started
 
@@ -105,7 +113,7 @@ The correlation configuration is used to specify which properties will be used t
 | ------------------------- | --------------------------------- |
 | Enable correlation        | `True`                            |
 | Person correlation field  | `PersonContext.Person.ExternalId` |
-| Account correlation field | `ExternalID`                  |
+| Account correlation field | `ExternalID`                      |
 
 > [!TIP]
 > _For more information on correlation, please refer to our correlation [documentation](https://docs.helloid.com/en/provisioning/target-systems/powershell-v2-target-systems/correlation.html) pages_.
@@ -296,6 +304,7 @@ The API documentation can be found using the links below.
 
 > [!TIP]
 > _For more information on how to configure a HelloID PowerShell connector, please refer to our [documentation](https://docs.helloid.com/en/provisioning/target-systems/powershell-v2-target-systems.html) pages_.
+
 
 ## HelloID docs
 
