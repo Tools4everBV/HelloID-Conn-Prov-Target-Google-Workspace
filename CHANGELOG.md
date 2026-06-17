@@ -2,13 +2,13 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com), and this project adheres to [Semantic Versioning](https://semver.org).
 
-## [2.0.0] - 2026-02-09
+## [1.3.1] - 2026-02-09
 
 ### Changed
 - Updated permission grant and revoke scripts to use built-in `PermissionDisplayName` instead of `DisplayName` from identification object for both groups and licenses permissions.
 
 ### Removed
-- Removed `DisplayName` property from identification objects in permissions scripts (breaking change).
+- Removed `DisplayName` property from identification objects in permissions scripts.
 
 ## [1.3.0] - 2026-02-18
 
