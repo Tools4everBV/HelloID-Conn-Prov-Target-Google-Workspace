@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com), and this project adheres to [Semantic Versioning](https://semver.org).
 
+## [1.3.2] - 2026-08-13
+
+### Fixed
+
+- Fixed issue [37](https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-Google-Workspace/issues/37) and added a conditional check before creating OUs
+
 ## [1.3.1] - 2026-02-09
 
 ### Changed
