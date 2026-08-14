@@ -157,11 +157,11 @@ try {
     Write-Information "Existing GoogleWS organizational units found [$($orgUnits.count)]"
 
     foreach ($resource in $resourceContext.SourceData) {
-        $orgUnitExists = $orgUnits | Where-Object {
-            $_.name -eq $resource -and
-            $_.parentOrgUnitPath -eq $actionContext.Configuration.ParentOrgUnitPath
-        }
         try {
+            $orgUnitExists = $orgUnits | Where-Object {
+                $_.name -eq $resource -and
+                $_.parentOrgUnitPath -eq $actionContext.Configuration.ParentOrgUnitPath
+            }
             if (-not $orgUnitExists) {
                 if (-not ($actionContext.DryRun -eq $True)) {
                     Write-Information "Create [$($resource)] GoogleWS resource"
