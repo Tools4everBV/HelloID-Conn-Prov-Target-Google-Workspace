@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com), and this project adheres to [Semantic Versioning](https://semver.org).
 
+## [1.3.2] - 2026-08-14
+
+### Fixed
+- Fixed import permissions scripts for groups to filter account references to only include accounts that exist in HelloID, preventing orphaned permission assignments for non-existent or unimported accounts.
+
 ## [1.3.1] - 2026-02-09
 
 ### Changed

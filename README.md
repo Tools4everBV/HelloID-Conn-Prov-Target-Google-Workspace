@@ -272,6 +272,9 @@ The import account script uses the same `ConvertTo-HelloIDAccountObject` functio
 ### Import - Groups
 Only the groups that contain members are shown in HelloID.
 
+> [!NOTE]
+> The import script retrieves all user accounts from Google Workspace before querying group memberships. This ensures that only account references for accounts that exist in HelloID are included in the permission assignments, preventing orphaned permissions for non-existent or unimported accounts.
+
 ### Import - Licenses
 - The licenses are static permissions in HelloID, so they cannot be retrieved from Google. Therefore, the list used in the permissions script is also used in the import script. Note that this static permission list should match exactly. The only difference between the lists is that the import script also requires a ProductID, which can be found in the Google API documentation. Currently, all the permissions listed are also included in the import script.
 
