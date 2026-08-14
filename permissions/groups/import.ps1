@@ -171,65 +171,72 @@ function Invoke-GoogleWSRestMethodWithPaging {
 
 try {
     Write-Information 'Starting group data import'
-    Write-Information 'Getting JWT token'
     $splatGetGoogleWSTokenParams = @{
         Issuer                 = $ActionContext.Configuration.Issuer
         Subject                = $ActionContext.Configuration.Subject
-        Scopes                 = @('https://www.googleapis.com/auth/admin.directory.group')
+        Scopes                 = @(
+            'https://www.googleapis.com/auth/admin.directory.group'
+            , 'https://www.googleapis.com/auth/admin.directory.user'
+        )
         P12CertificateBase64   = $ActionContext.Configuration.P12CertificateBase64
         P12CertificatePassword = $ActionContext.Configuration.P12CertificatePassword
     }
     $accessToken = Get-GoogleWSAccessToken @splatGetGoogleWSTokenParams
 
-    Write-Information 'Setting authentication headers'
     $headers = [System.Collections.Generic.Dictionary[string, string]]::new()
     $headers.Add('Content-Type', 'application/x-www-form-urlencoded')
     $headers.Add('Authorization', "Bearer $($accessToken)")
 
-    Write-Information 'Retrieve existing GoogleWS groups'
     $splatGetGroups = @{
         Uri     = "https://www.googleapis.com/admin/directory/v1/groups?customer=my_customer"
         Method  = 'GET'
         Headers = $headers
     }
     $retrievedPermissions = Invoke-GoogleWSRestMethodWithPaging @splatGetGroups -CollectionName 'groups'
+    Write-Information "Queried groups. Result count: $(($retrievedPermissions | Measure-Object).Count)"
 
+    $splatGetUserParams = @{
+        Uri     = 'https://www.googleapis.com/admin/directory/v1/users?customer=my_customer'
+        Method  = 'GET'
+        Headers = $headers
+    }
+    $importedAccounts = (Invoke-GoogleWSRestMethodWithPaging @splatGetUserParams -CollectionName 'Users').id
+    Write-Information "Queried accounts. Result count: $(($importedAccounts | Measure-Object).Count)"
+
+    # Process each group and output permission objects with filtered account references
+    $importedPermissions = 0
     foreach ($retrievedPermission in $retrievedPermissions) {
-
-        # Make sure the displayname has a value of max 100 char
-        $displayName = "$($retrievedPermission.email)"
-        $displayName = $displayName.substring(0, [System.Math]::Min(100, $displayName.Length)) 
-
-        # Make sure the description has a value of max 100 char
-        $description = "$($retrievedPermission.description)"
-        $description = $description.substring(0, [System.Math]::Min(100, $description.Length)) 
-
         $permission = @{
             PermissionReference = @{
                 Reference = $retrievedPermission.id
             }
-            Description         = $description
-            DisplayName         = $displayName
+            AccountReferences   = $null
         }
 
         if ($retrievedPermission.directMembersCount -gt 0) {
             $splatGetGroupMembers = @{
-                Uri     = "https://www.googleapis.com/admin/directory/v1/groups/$($retrievedPermission.id)/members?customer=my_customer"
+                Uri     = "https://www.googleapis.com/admin/directory/v1/groups/$($retrievedPermission.id)/members?customer=my_customer&roles=member"
                 Method  = 'GET'
                 Headers = $headers
             }
-            $membersOfRetrievedPermission = [System.Collections.Generic.List[string]]((Invoke-GoogleWSRestMethodWithPaging @splatGetGroupMembers -CollectionName 'members').id)
+            $membersOfRetrievedPermission = (Invoke-GoogleWSRestMethodWithPaging @splatGetGroupMembers -CollectionName 'members')#.id
+            # Filter the members to only include those that exist in the imported accounts
+            $membersOfRetrievedPermission = $membersOfRetrievedPermission | Where-Object { $_ -in $importedAccounts }
 
-            # Batch permissions based on AccountReference to ensure the output object do not exceed the limit.
+            # The code below splits a list of permission members into batches of 100
+            # Each batch is assigned to $permission.AccountReferences and the permission object will be returned to HelloID for each batch
+            # Ensure batching is based on the number of account references to prevent exceeding the maximum limit of 500 account references per batch
             $batchSize = 500
-            for ($i = 0; $i -lt $membersOfRetrievedPermission.Count; $i += $batchSize) {
-                # GetRange instead of `| Select-Object -First -Skip` to avoid issues with large lists.
-                $permission.AccountReferences = [array]($membersOfRetrievedPermission.GetRange($i, [Math]::Min($batchSize, $membersOfRetrievedPermission.Count - $i)))
+            for ($i = 0; $i -lt ($membersOfRetrievedPermission | Measure-Object).Count; $i += $batchSize) {
+                $permission.AccountReferences = $membersOfRetrievedPermission[$i..([Math]::Min($i + $batchSize - 1, $membersOfRetrievedPermission.Count - 1))]
                 Write-Output $permission
             }
+
+            $importedPermissions += ($membersOfRetrievedPermission | Measure-Object).Count
         }
     }
-    Write-Information 'Group data import completed'
+    
+    Write-Information "Completed import of group permissions. Result count: $importedPermissions"
 }
 catch {
     $ex = $PSItem
