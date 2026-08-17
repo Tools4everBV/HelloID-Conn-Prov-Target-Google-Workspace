@@ -30,6 +30,9 @@
       - [Static permissions](#static-permissions)
       - [Dynamic permissions](#dynamic-permissions)
     - [Permissions - Licenses](#permissions---licenses)
+    - [Permissions - Drives](#permissions---drives)
+      - [Static permissions](#static-permissions-1)
+      - [Dynamic permissions](#dynamic-permissions-1)
     - [Resources - Groups](#resources---groups)
     - [Resources - Organizational Units](#resources---organizational-units)
     - [Import - Account](#import---account)
@@ -197,7 +200,14 @@ When an account is enabled or disabled, **and** if the configuration settings `E
 
 ### Delete lifecycle action
 
-Within the _delete_ lifecycle action, the account will be deleted from _Google Workspace_.
+Within the _delete_ lifecycle action, the account will be deleted from _Google Workspace_ when the configuration option `deleteAccount` is set to `true`.
+
+When `deleteAccount` is set to `false`, the account will not be deleted. Instead, the script will:
+1. Compare the account's current properties with the mapped fields from the fieldMapping
+2. Update any changed properties to keep the account synchronized
+3. Skip the update if no changes are detected (account already matches fieldMapping)
+
+This ensures that accounts remain up-to-date based on the fieldMapping even when deletion is disabled.
 
 ### Permissions - groups
 
