@@ -3,6 +3,12 @@
 # PowerShell V2
 ##################################################
 
+# Remove BuildingId from actionContext.Data if empty (as we do not want to update it with an empty value)
+if ([string]::IsNullOrEmpty($actionContext.Data.BuildingId)) {
+    Write-Information "Skipping update of [BuildingId]. Reason: The provided value is empty. The current configuration does not allow setting this with an empty value."
+    $actionContext.Data.PsObject.Properties.Remove("BuildingId")
+}
+
 # Enable TLS1.2
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
 
@@ -115,6 +121,229 @@ function Get-GoogleWSAccessToken {
         $PSCmdlet.ThrowTerminatingError($_)
     }
 }
+
+function ConvertTo-HelloIDAccountObject {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline = $True)]
+        [object]
+        $GoogleAccountObject
+    )
+
+    process {
+        # Extract location information from the Google Workspace user object
+        # Locations represent physical spaces where the user works
+        # Reference: https://developers.google.com/workspace/admin/directory/reference/rest/v1/users#Location
+        # To extract additional location properties, add them alongside buildingId
+        # Note: Currently supporting single location (selecting the first one from the locations array)
+        # To support multiple locations, modify the retrieval logic to loop through all locations
+        $buildingId = $null
+        if ($null -ne $GoogleAccountObject.locations) {
+            $location = $GoogleAccountObject.locations | Select-Object -First 1
+            if (-not [string]::IsNullOrEmpty($location)) {
+                $buildingId = $location.buildingId
+            }
+        }
+
+        if ($null -ne $GoogleAccountObject.organizations) {
+            foreach ($organization in $GoogleAccountObject.organizations ) {
+                switch ($organization.type) {
+                    'work' {
+                        $department = $organization.department
+                        $title = $organization.title
+                    }
+                }
+            }
+        }
+
+        if ($null -ne $GoogleAccountObject.externalIds) {
+            foreach ($externalId in $GoogleAccountObject.externalIds ) {
+                switch ($externalId.type) {
+                    'organization' {
+                        $externalId = $externalId.value
+                    }
+                }
+            }
+        }
+
+        if ($null -ne $GoogleAccountObject.relations) {
+            foreach ($relation in  $GoogleAccountObject.relations) {
+                if ($relation.type -eq 'manager') {
+                    $manager = $relation.value
+                    break
+                }
+            }
+        }
+
+        if ($GoogleAccountObject.IncludeInGlobalAddressList) {
+            $includeInGlobalAddressList = 'true'
+        }
+        else {
+            $includeInGlobalAddressList = 'false'
+        }
+
+        $mobilePhone = $null
+        $workPhone = $null
+        foreach ($phone in $GoogleAccountObject.phones ) {
+            switch ($phone.type) {
+                'mobile' {
+                    $mobilePhone = if ([string]::IsNullOrEmpty($phone.value)) { $null } else { $phone.value }
+                }
+                'work' {
+                    $workPhone = if ([string]::IsNullOrEmpty($phone.value)) { $null } else { $phone.value }
+                }
+            }
+        }
+
+        $helloIdAccountObject = [PSCustomObject] @{
+            Container                  = "$($GoogleAccountObject.orgUnitPath)"
+            Department                 = "$department"
+            ExternalID                 = "$externalId"
+            FamilyName                 = "$($GoogleAccountObject.name.familyName)"
+            GivenName                  = "$($GoogleAccountObject.name.givenName)"
+            IncludeInGlobalAddressList = "$includeInGlobalAddressList"
+            Manager                    = "$Manager"
+            MobilePhone                = $mobilePhone
+            PrimaryEmail               = "$($GoogleAccountObject.PrimaryEmail)"
+            Title                      = "$title"
+            WorkPhone                  = $workPhone
+            BuildingId                 = $buildingId
+        }
+        Write-Output $helloIdAccountObject
+    }
+}
+
+function ConvertTo-GoogleAccountUpdateObject {
+    [CmdletBinding()]
+    param(
+        [Parameter()]
+        [object]
+        $HelloIDAccountObject,
+
+        [Parameter()]
+        [object]
+        $PropertiesToConvert,
+
+        [Parameter()]
+        [object]
+        $PreviousGoogleAccountObject
+    )
+
+    process {
+        $googleAccountUpdateObject = [PSCustomObject] @{}
+
+        # Build the user's location information
+        # Locations represent physical spaces where the user works (e.g., desk locations, buildings)
+        # Reference: https://developers.google.com/workspace/admin/directory/reference/rest/v1/users#Location
+        # Note: Currently supporting single location (selecting the first one during update)
+        if (('BuildingId' -in $PropertiesToConvert.Name)) {
+            [array]$locations = ($PreviousGoogleAccountObject.locations)
+
+            if ($null -ne $PreviousGoogleAccountObject.locations) {
+                $locations | Add-Member -MemberType 'NoteProperty' -Name 'buildingId' -Value "$($HelloIDAccountObject.BuildingId)" -Force
+            }
+            else {
+                $locations = @{
+                    type       = "desk"
+                    area       = "desk"
+                    buildingId = "$($HelloIDAccountObject.BuildingId)"
+                }
+            }
+            $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'locations' -Value $locations -Force
+        }
+
+        if ('Container' -in $PropertiesToConvert.Name) {
+            $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'orgUnitPath' -Value $HelloIDAccountObject.Container
+        }
+
+        if ('ExternalID' -in $PropertiesToConvert.Name) {
+            $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'externalIds' -Value @(
+                @{
+                    value = "$($HelloIDAccountObject.ExternalId)"
+                    type  = 'organization'
+                }
+            )
+        }
+
+        if ('PrimaryEmail' -in $PropertiesToConvert.Name) {
+            $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'primaryEmail' -Value $HelloIDAccountObject.primaryEmail
+        }
+
+        if ('IncludeInGlobalAddressList' -in $PropertiesToConvert.Name) {
+            [bool]$includeInGlobalAddressList = [System.Convert]::ToBoolean($HelloIDAccountObject.includeInGlobalAddressList )
+            $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'includeInGlobalAddressList' -Value $includeInGlobalAddressList
+        }
+
+        if ('Manager' -in $PropertiesToConvert.Name) {
+            $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'relations' -Value @(
+                @{
+                    type  = 'manager'
+                    value = "$($HelloIDAccountObject.Manager)"
+                }
+            )
+        }
+
+        # Update organization information (department and title) if changed
+        # Preserves existing organization data while updating the modified fields
+        if (('Department' -in $PropertiesToConvert.Name) -or ('Title' -in $PropertiesToConvert.Name)) {
+            [array]$organizations = ($PreviousGoogleAccountObject.organizations)
+
+            if ($null -ne $PreviousGoogleAccountObject.organizations) {
+                $organizations | Add-Member -MemberType 'NoteProperty' -Name 'title' -Value "$($HelloIDAccountObject.Title)" -Force
+                $organizations | Add-Member -MemberType 'NoteProperty' -Name 'department' -Value "$($HelloIDAccountObject.Department)" -Force
+            }
+            else {
+                $organizations = @{
+                    title      = "$($HelloIDAccountObject.Title)"
+                    department = "$($HelloIDAccountObject.Department)"
+                    type       = 'work'
+                }
+            }
+            $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'organizations' -Value $organizations -Force
+        }
+
+
+        if (('FamilyName' -in $PropertiesToConvert.Name) -or ('GivenName' -in $PropertiesToConvert.Name)) {
+            $name = @{
+                givenName  = "$($HelloIDAccountObject.givenName)"
+                familyName = "$($HelloIDAccountObject.FamilyName)"
+            }
+            $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'name' -Value $name
+        }
+
+        if (('MobilePhone' -in $PropertiesToConvert.Name) -or ('WorkPhone' -in $PropertiesToConvert.Name)) {
+            [array]$phones = ($PreviousGoogleAccountObject.phones)
+            $phoneTypes = @{
+                MobilePhone = 'mobile'
+                WorkPhone   = 'work'
+            }
+
+            # Update the phone numbers list by updating existing numbers, adding new ones, and removing any empty entries.
+            foreach ($property in $phoneTypes.Keys) {
+                if ($property -in $PropertiesToConvert.Name) {
+                    $objectToUpdate = $phones | Where-Object { $_.type -eq ($property -split 'Phone')[0] }
+                    if ($null -ne $objectToUpdate) {
+                        if ([System.String]::IsNullOrEmpty($HelloIDAccountObject.$property)) {
+                            $phones = $phones | Where-Object { $_.type -ne ($property -split 'Phone')[0] }
+                        }
+                        else {
+                            $objectToUpdate.value = "$($HelloIDAccountObject.$property)"
+                        }
+                    }
+                    else {
+                        [array]$phones += ([PSCustomObject]@{
+                                type  = $phoneTypes[$property]
+                                value = "$($HelloIDAccountObject.$property)"
+                            })
+                    }
+                }
+            }
+            $googleAccountUpdateObject | Add-Member -MemberType 'NoteProperty' -Name 'phones' -Value $phones
+        }
+
+        write-output $googleAccountUpdateObject
+    }
+}
 #endregion
 
 try {
@@ -144,7 +373,10 @@ try {
             Method  = 'GET'
             Headers = $headers
         }
-        $correlatedAccount = Invoke-RestMethod @splatGetUserParams
+        $correlatedAccountGoogle = Invoke-RestMethod @splatGetUserParams
+
+        $correlatedAccount = ConvertTo-HelloIDAccountObject -GoogleAccountObject $correlatedAccountGoogle
+        $outputContext.PreviousData = $correlatedAccount
     }
     catch {
         if ($_.Exception.Response.StatusCode -ne 404) {
@@ -157,7 +389,24 @@ try {
             $action = 'DeleteAccount'
         }
         else {
-            $action = "SkipDelete"
+            # Delete is skipped, but check if an update is needed based on mapped fields
+            $splatCompareProperties = @{
+                ReferenceObject  = @($correlatedAccount.PSObject.Properties)
+                DifferenceObject = @($actionContext.Data.PSObject.Properties)
+            }
+            $propertiesChanged = Compare-Object @splatCompareProperties -PassThru | Where-Object { $_.SideIndicator -eq '=>' }
+            
+            if ($actionContext.Configuration.MoveAccountOnUpdate -eq $false) {
+                [array]$propertiesChanged = $propertiesChanged | Where-Object { $_.Name -ne 'Container' }
+                $outputContext.Data.Container = $actionContext.PreviousData.Container
+            }
+
+            if ($propertiesChanged) {
+                $action = 'UpdateAccount'
+            }
+            else {
+                $action = 'NoChanges'
+            }
         }
     }
     else {
@@ -191,11 +440,53 @@ try {
             break
         }
 
-        'SkipDelete' {
+        'UpdateAccount' {
             Write-Information "Skipped deleting GoogleWS account with accountReference: [$($actionContext.References.Account)]. Reason: Configuration option [DeleteAccount] is set to [$($actionContext.Configuration.deleteAccount)]."
+            Write-Information "Account property(s) required to update based on fieldMapping: $($propertiesChanged.Name -join ', ')"
+            
+            $googleAccountUpdateObject = ConvertTo-GoogleAccountUpdateObject -HelloIDAccountObject $actionContext.Data -PropertiesToConvert $propertiesChanged -PreviousGoogleAccountObject $correlatedAccountGoogle
+
+            Write-Information "Updating GoogleWS account with accountReference: [$($actionContext.References.Account)]"
+            $splatUpdateParams = @{
+                Uri         = "https://www.googleapis.com/admin/directory/v1/users/$($actionContext.References.Account)"
+                # Use PUT instead of PATCH as Google API supports patch semantics, meaning that you only need to include the fields you wish to update. Fields that are not present in the request will be preserved, and fields set to null will be cleared.
+                # Docs: https://developers.google.com/workspace/admin/directory/reference/rest/v1/users/update 
+                Method      = 'PUT'
+                Body        = $googleAccountUpdateObject | ConvertTo-Json
+                Headers     = $headers
+                ContentType = 'application/json;charset=utf-8'
+            }
+
+            if (-not($actionContext.DryRun -eq $true)) {
+                $updatedAccountGoogle = Invoke-RestMethod @splatUpdateParams
+                $outputContext.Data = $updatedAccountGoogle | ConvertTo-HelloIDAccountObject
+                if ($propertiesChanged.Name -contains 'primaryEmail') {
+                    $outputContext.AccountReference = @{id = $correlatedAccountGoogle.id; primaryEmail = $updatedAccountGoogle.primaryEmail }
+                }
+                $auditLogMessage = "Skipped deleting GoogleWS account with accountReference: [$($actionContext.References.Account)] (reason: Configuration option [DeleteAccount] is set to [$($actionContext.Configuration.deleteAccount)]). Updated account based on fieldMapping. Account property(s) updated: [$($propertiesChanged.name -join ',')]"
+            }
+            else {
+                $auditLogMessage = "[DryRun] Skipped deleting GoogleWS account with accountReference: [$($actionContext.References.Account)] (reason: Configuration option [DeleteAccount] is set to [$($actionContext.Configuration.deleteAccount)]). Update account based on fieldMapping will be executed during enforcement. Account property(s) to update: [$($propertiesChanged.name -join ',')]"
+            }
+            
             $outputContext.Success = $true
             $outputContext.AuditLogs.Add([PSCustomObject]@{
-                    Message = "Skipped deleting GoogleWS account with accountReference: [$($actionContext.References.Account)]. Reason: Configuration option [DeleteAccount] is set to [$($actionContext.Configuration.deleteAccount)]."
+                    Message = $auditLogMessage
+                    IsError = $false
+                })
+            break
+        }
+
+        'NoChanges' {
+            Write-Information "Skipped deleting GoogleWS account with accountReference: [$($actionContext.References.Account)]. Reason: Configuration option [DeleteAccount] is set to [$($actionContext.Configuration.deleteAccount)]."
+            Write-Information "Skipped updating GoogleWS account with accountReference: [$($actionContext.References.Account)]. Reason: Account matches fieldMapping, no changes required."
+            
+            $outputContext.Data = $correlatedAccount
+            $auditLogMessage = "Skipped deleting GoogleWS account with accountReference: [$($actionContext.References.Account)] (reason: Configuration option [DeleteAccount] is set to [$($actionContext.Configuration.deleteAccount)]). Skipped updating account (reason: Account matches fieldMapping, no changes required)."
+            
+            $outputContext.Success = $true
+            $outputContext.AuditLogs.Add([PSCustomObject]@{
+                    Message = $auditLogMessage
                     IsError = $false
                 })
             break
