@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com), and this project adheres to [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Changed
+- Enhanced delete lifecycle action to update account based on fieldMapping when delete is skipped (configuration option `deleteAccount` is set to `false`). The script now compares mapped fields with the current account and updates any changed properties, ensuring accounts remain synchronized even when deletion is disabled.
+
+### Fixed
+- Fixed OU calculation in disable lifecycle action to prevent errors when person data is no longer available in the source system. The script now determines the disabled container using prioritized fallback logic: 1) configured `DisabledContainer`, 2) fieldMapping container (if person data is still available), or 3) calculated based on the current OU path.
+
 ## [1.3.1] - 2026-02-09
 
 ### Changed
