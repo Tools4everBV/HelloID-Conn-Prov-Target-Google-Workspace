@@ -6,6 +6,7 @@
     "templateOptions": {
       "label": "Issuer",
       "description": "The client ID used to generate the token. Typically this is the  service account ID used for authentication.",
+      "placeholder": "example-service-account@project-id.iam.gserviceaccount.com",
       "required": true
     }
   },
@@ -16,6 +17,7 @@
     "templateOptions": {
       "label": "Subject",
       "description": "The user or service account on whose behalf the token is issued. Typically represents the admin account that has been authorized to perform actions on behalf of users or manage the Google Workspace domain.",
+      "placeholder": "admin@example.com",
       "required": true
     }
   },
