@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com), and this project adheres to [Semantic Versioning](https://semver.org).
 
+## [1.3.4] - 2026-11-05
+
+### Fixed
+- Fixed update script overwriting the account reference with an object when `PrimaryEmail` changed, which broke all subsequent scripts that expect the account reference to be the Google user id.
+
 ## [1.3.3] - 2026-08-28
 
 ### Fixed
@@ -10,6 +15,7 @@ All notable changes to this project will be documented in this file. The format 
 ## [1.3.2] - 2026-08-14
 
 ### Fixed
+- Fixed issue [37](https://github.com/Tools4everBV/HelloID-Conn-Prov-Target-Google-Workspace/issues/37) and added a conditional check before creating OUs.
 - Fixed import permissions scripts for groups to filter account references to only include accounts that exist in HelloID, preventing orphaned permission assignments for non-existent or unimported accounts.
 
 ## [1.3.1] - 2026-02-09

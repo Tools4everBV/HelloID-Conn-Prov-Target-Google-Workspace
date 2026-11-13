@@ -427,9 +427,6 @@ try {
             if (-not($actionContext.DryRun -eq $true)) {
                 $updatedAccountGoogle = Invoke-RestMethod @splatUpdateParams
                 $outputContext.Data = $updatedAccountGoogle | ConvertTo-HelloIDAccountObject
-                if ($propertiesChanged.Name -contains 'primaryEmail') {
-                    $outputContext.AccountReference = @{id = $correlatedAccountGoogle.id; primaryEmail = $updatedAccountGoogle.primaryEmail }
-                }
             }
             else {
                 Write-Information "[DryRun] Update GoogleWS account with accountReference: [$($actionContext.References.Account)], will be executed during enforcement"
